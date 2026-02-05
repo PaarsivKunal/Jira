@@ -1,0 +1,163 @@
+import axios from 'axios';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+const api = axios.create({
+  baseURL: API_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Add token to requests
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Handle token expiration
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
+// Auth
+export const register = (userData) => api.post('/auth/register', userData);
+export const login = (credentials) => api.post('/auth/login', credentials);
+export const getMe = () => api.get('/auth/me');
+
+// Microsoft Integration
+export const getMicrosoftAuthUrl = (integrationType) => 
+  api.get(`/microsoft/auth-url?integrationType=${integrationType}`);
+export const getIntegrationStatus = () => api.get('/microsoft/status');
+export const getUserTeams = () => api.get('/microsoft/teams');
+export const getTeamChannels = (teamId) => api.get(`/microsoft/teams/${teamId}/channels`);
+export const configureTeamsChannel = (data) => api.post('/microsoft/teams/configure', data);
+export const updateIntegrationSettings = (settings) => api.put('/microsoft/settings', settings);
+export const disconnectIntegration = (type) => api.post('/microsoft/disconnect', { type });
+
+// Projects
+export const getProjects = () => api.get('/projects');
+export const getProject = (id) => api.get(`/projects/${id}`);
+export const getProjectStats = (id) => api.get(`/projects/${id}/stats`);
+export const createProject = (data) => api.post('/projects', data);
+export const updateProject = (id, data) => api.put(`/projects/${id}`, data);
+export const deleteProject = (id) => api.delete(`/projects/${id}`);
+
+// Issues
+export const getIssues = (params) => api.get('/issues', { params });
+export const getIssue = (id) => api.get(`/issues/${id}`);
+export const createIssue = (data) => api.post('/issues', data);
+export const updateIssue = (id, data) => api.put(`/issues/${id}`, data);
+export const deleteIssue = (id) => api.delete(`/issues/${id}`);
+export const updateIssueStatus = (id, status) =>
+  api.patch(`/issues/${id}/status`, { status });
+
+// Comments
+export const getComments = (issueId) =>
+  api.get(`/comments/issues/${issueId}/comments`);
+export const createComment = (issueId, content) =>
+  api.post(`/comments/issues/${issueId}/comments`, { content });
+export const updateComment = (id, content) =>
+  api.put(`/comments/${id}`, { content });
+export const deleteComment = (id) => api.delete(`/comments/${id}`);
+
+// Child Issues
+export const getChildIssues = (issueId) => api.get(`/issues/${issueId}/children`);
+export const createChildIssue = (issueId, data) =>
+  api.post(`/issues/${issueId}/children`, data);
+
+// Linked Issues
+export const getLinkedIssues = (issueId) => api.get(`/issues/${issueId}/links`);
+export const linkIssues = (issueId, linkedIssueId, linkType) =>
+  api.post(`/issues/${issueId}/links`, { linkedIssueId, linkType });
+export const unlinkIssues = (issueId, linkId) =>
+  api.delete(`/issues/${issueId}/links/${linkId}`);
+
+// Work Logs
+export const getWorkLogs = (issueId) => api.get(`/issues/${issueId}/worklogs`);
+export const createWorkLog = (issueId, data) =>
+  api.post(`/issues/${issueId}/worklogs`, data);
+export const updateWorkLog = (workLogId, data) =>
+  api.put(`/worklogs/${workLogId}`, data);
+export const deleteWorkLog = (workLogId) => api.delete(`/worklogs/${workLogId}`);
+
+// Activities
+export const getActivities = (issueId) => api.get(`/issues/${issueId}/activities`);
+
+// Users
+export const getUsers = () => api.get('/users');
+export const getUser = (id) => api.get(`/users/${id}`);
+
+// Forms
+export const getForms = (projectId) => api.get(`/projects/${projectId}/forms`);
+export const getForm = (id) => api.get(`/forms/${id}`);
+export const getFormByShareUrl = (shareUrl) => api.get(`/forms/share/${shareUrl}`);
+export const createForm = (projectId, data) => api.post(`/projects/${projectId}/forms`, data);
+export const updateForm = (id, data) => api.put(`/forms/${id}`, data);
+export const deleteForm = (id) => api.delete(`/forms/${id}`);
+export const submitForm = (id, data) => api.post(`/forms/${id}/submit`, data);
+export const getFormSubmissions = (id) => api.get(`/forms/${id}/submissions`);
+
+// Attachments
+export const getAttachments = (projectId, params) =>
+  api.get(`/attachments/projects/${projectId}/attachments`, { params });
+export const getIssueAttachments = (issueId) =>
+  api.get(`/attachments/issues/${issueId}/attachments`);
+export const uploadAttachment = (issueId, file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  return api.post(`/attachments/issues/${issueId}/attachments`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+};
+export const uploadProjectAttachment = (projectId, file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  return api.post(`/attachments/projects/${projectId}/attachments`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+};
+export const downloadAttachment = (id) =>
+  api.get(`/attachments/${id}/download`, { responseType: 'blob' });
+export const getAttachment = (id) => api.get(`/attachments/${id}`);
+export const deleteAttachment = (id) => api.delete(`/attachments/${id}`);
+
+// Reports
+export const getReports = (projectId) => api.get(`/reports/projects/${projectId}/reports`);
+export const getReport = (id) => api.get(`/reports/${id}`);
+export const createReport = (projectId, data) => api.post(`/reports/projects/${projectId}/reports`, data);
+export const updateReport = (id, data) => api.put(`/reports/${id}`, data);
+export const deleteReport = (id) => api.delete(`/reports/${id}`);
+export const getReportData = (id) => api.get(`/reports/${id}/data`);
+
+// Shortcuts
+export const getShortcuts = () => api.get('/shortcuts');
+export const createShortcut = (data) => api.post('/shortcuts', data);
+export const updateShortcut = (id, data) => api.put(`/shortcuts/${id}`, data);
+export const deleteShortcut = (id) => api.delete(`/shortcuts/${id}`);
+export const deleteAllShortcuts = () => api.delete('/shortcuts');
+
+// Sprints
+export const getSprints = (projectId, status) => api.get('/sprints', { params: { projectId, status } });
+export const createSprint = (data) => api.post('/sprints', data);
+export const updateSprint = (id, data) => api.put(`/sprints/${id}`, data);
+export const deleteSprint = (id) => api.delete(`/sprints/${id}`);
+
+export default api;
+
