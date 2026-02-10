@@ -37,11 +37,11 @@ api.interceptors.response.use(
 );
 
 // Auth
-export const register = (userData) => api.post('/auth/register', userData);
 export const login = (credentials) => api.post('/auth/login', credentials);
 export const getMe = () => api.get('/auth/me');
 export const forgotPassword = (email) => api.post('/auth/forgot-password', { email });
 export const resetPassword = (token, password) => api.put(`/auth/reset-password/${token}`, { password });
+export const changePassword = (currentPassword, newPassword) => api.put('/auth/change-password', { currentPassword, newPassword });
 
 // Microsoft Integration
 export const getMicrosoftAuthUrl = (integrationType) => 
@@ -109,6 +109,9 @@ export const getActivities = (issueId) => api.get(`/issues/${issueId}/activities
 // Users
 export const getUsers = () => api.get('/users');
 export const getUser = (id) => api.get(`/users/${id}`);
+export const createUser = (userData) => api.post('/users', userData);
+export const updateUser = (id, userData) => api.put(`/users/${id}`, userData);
+export const deleteUser = (id) => api.delete(`/users/${id}`);
 
 // Forms
 export const getForms = (projectId) => api.get(`/projects/${projectId}/forms`);

@@ -105,6 +105,7 @@ export const login = async (req, res) => {
         role: user.role,
         avatar: user.avatar,
         department: user.department,
+        mustChangePassword: user.mustChangePassword || false,
         token: generateToken(user._id),
       });
     } else {
@@ -125,7 +126,10 @@ export const login = async (req, res) => {
 export const getMe = async (req, res) => {
   try {
     const user = await User.findById(req.user._id).select('-password');
-    res.json(user);
+    res.json({
+      ...user.toObject(),
+      mustChangePassword: user.mustChangePassword || false,
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -198,6 +202,7 @@ export const resetPassword = async (req, res) => {
     user.password = password;
     user.resetPasswordToken = undefined;
     user.resetPasswordExpire = undefined;
+    user.mustChangePassword = false; // Password has been set
     await user.save();
 
     const authToken = generateToken(user._id);
@@ -211,6 +216,37 @@ export const resetPassword = async (req, res) => {
       department: user.department,
       token: authToken,
       message: 'Password reset successful',
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Change password (for first-time login)
+// @route   PUT /api/auth/change-password
+// @access  Private
+export const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Verify current password
+    if (!(await user.matchPassword(currentPassword))) {
+      return res.status(401).json({ message: 'Current password is incorrect' });
+    }
+
+    // Update password
+    user.password = newPassword;
+    user.mustChangePassword = false; // Password has been changed
+    await user.save();
+
+    res.json({
+      message: 'Password changed successfully',
+      mustChangePassword: false,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

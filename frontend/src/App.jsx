@@ -6,11 +6,14 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { SocketProvider } from './context/SocketContext';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import InstallPrompt from './components/common/InstallPrompt';
+import UpdateNotification from './components/common/UpdateNotification';
+import OfflineIndicator from './components/common/OfflineIndicator';
 import Navbar from './components/common/Navbar';
 import Sidebar from './components/common/Sidebar';
 import Login from './pages/Login';
-import Register from './pages/Register';
 import SignUp from './pages/SignUp';
+import AdminUsers from './pages/AdminUsers';
+import SetPassword from './pages/SetPassword';
 import ResetPassword from './pages/ResetPassword';
 import ForgotPassword from './pages/ForgotPassword';
 import AccountDetails from './pages/AccountDetails';
@@ -49,7 +52,16 @@ const ProtectedRoute = ({ children }) => {
     );
   }
 
-  return user ? children : <Navigate to="/login" />;
+  if (!user) {
+    return <Navigate to="/login" />;
+  }
+
+  // Redirect to set password if user must change password
+  if (user.mustChangePassword) {
+    return <Navigate to="/set-password" replace />;
+  }
+
+  return children;
 };
 
 const Layout = ({ children }) => {
@@ -99,13 +111,15 @@ function App() {
           <SocketProvider>
             <Router>
             <Toaster position="top-right" />
+            <OfflineIndicator />
             <InstallPrompt />
+            <UpdateNotification />
             <Routes>
               <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
               <Route path="/signup" element={<SignUp />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/reset-password/:token" element={<ResetPassword />} />
+              <Route path="/set-password" element={<SetPassword />} />
               <Route path="/" element={<Navigate to="/signup" replace />} />
               <Route path="/account-details" element={<AccountDetails />} />
               <Route
@@ -114,6 +128,16 @@ function App() {
                   <ProtectedRoute>
                     <Layout>
                       <IntegrationSettings />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/users"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <AdminUsers />
                     </Layout>
                   </ProtectedRoute>
                 }

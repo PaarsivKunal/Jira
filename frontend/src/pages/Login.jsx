@@ -13,7 +13,11 @@ const Login = () => {
     e.preventDefault();
     const result = await login(formData.email, formData.password);
     if (result.success) {
-      navigate('/dashboard');
+      if (result.mustChangePassword) {
+        navigate('/set-password');
+      } else {
+        navigate('/dashboard');
+      }
     }
   };
 
@@ -99,14 +103,14 @@ const Login = () => {
               Sign in
             </button>
           </div>
-          <div className="text-center">
+          {/* <div className="text-center">
             <Link
               to="/signup"
               className="text-sm text-primary-600 hover:underline"
             >
               Already have Paarsiv? Login
             </Link>
-          </div>
+          </div> */}
         </form>
       </div>
     </div>

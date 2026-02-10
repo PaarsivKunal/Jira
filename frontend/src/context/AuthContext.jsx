@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { getMe, login as loginApi, register as registerApi } from '../services/api';
+import { getMe, login as loginApi } from '../services/api';
 import toast from 'react-hot-toast';
 
 const AuthContext = createContext();
@@ -27,8 +27,12 @@ export const AuthProvider = ({ children }) => {
         try {
           const response = await getMe();
           if (isMounted) {
-            setUser(response.data);
-            localStorage.setItem('user', JSON.stringify(response.data));
+            const userData = {
+              ...response.data,
+              mustChangePassword: response.data.mustChangePassword || false,
+            };
+            setUser(userData);
+            localStorage.setItem('user', JSON.stringify(userData));
           }
         } catch (error) {
           if (isMounted) {
@@ -54,30 +58,34 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       const response = await loginApi({ email, password });
-      const { token, ...userData } = response.data;
+      const { token, mustChangePassword, ...userData } = response.data;
+      const userWithPasswordFlag = { ...userData, mustChangePassword: mustChangePassword || false };
       localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(userData));
-      setUser(userData);
+      localStorage.setItem('user', JSON.stringify(userWithPasswordFlag));
+      setUser(userWithPasswordFlag);
+      
+      if (mustChangePassword) {
+        toast.info('Please set a new password to continue');
+        return { success: true, mustChangePassword: true };
+      }
+      
       toast.success('Logged in successfully');
-      return { success: true };
+      return { success: true, mustChangePassword: false };
     } catch (error) {
       toast.error(error.response?.data?.message || 'Login failed');
       return { success: false, error: error.response?.data?.message };
     }
   };
 
-  const register = async (userData) => {
+  const refreshUser = async () => {
     try {
-      const response = await registerApi(userData);
-      const { token, ...userInfo } = response.data;
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(userInfo));
-      setUser(userInfo);
-      toast.success('Account created successfully');
-      return { success: true };
+      const response = await getMe();
+      setUser(response.data);
+      localStorage.setItem('user', JSON.stringify(response.data));
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Registration failed');
-      return { success: false, error: error.response?.data?.message };
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Failed to refresh user:', error);
+      }
     }
   };
 
@@ -89,7 +97,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, logout, loading, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

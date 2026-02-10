@@ -1,11 +1,13 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getProjects } from '../../services/api';
-import { ChevronLeft, ChevronRight, Plus, X } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { ChevronLeft, ChevronRight, Plus, X, Users } from 'lucide-react';
 import { useState } from 'react';
 
 const Sidebar = ({ isCollapsed, onToggle, onClose }) => {
   const location = useLocation();
+  const { user } = useAuth();
   const { data: projectsResponse } = useQuery({
     queryKey: ['projects'],
     queryFn: () => getProjects().then((res) => res.data),
@@ -34,6 +36,7 @@ const Sidebar = ({ isCollapsed, onToggle, onClose }) => {
             <Link
               key={project._id}
               to={`/projects/${project._id}/board`}
+              onClick={onClose}
               className={`p-2 mb-2 rounded-lg transition-colors ${
                 isActive ? 'bg-primary-50' : 'hover:bg-gray-100'
               }`}
@@ -47,6 +50,20 @@ const Sidebar = ({ isCollapsed, onToggle, onClose }) => {
             </Link>
           );
         })}
+        {user?.role === 'admin' && (
+          <Link
+            to="/admin/users"
+            onClick={onClose}
+            className={`p-2 mt-2 rounded-lg transition-colors ${
+              location.pathname === '/admin/users'
+                ? 'bg-primary-50 text-primary-700'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+            title="User Management"
+          >
+            <Users size={20} />
+          </Link>
+        )}
       </aside>
     );
   }
@@ -115,6 +132,27 @@ const Sidebar = ({ isCollapsed, onToggle, onClose }) => {
             </button>
           )}
         </div>
+        
+        {/* Admin Section */}
+        {user?.role === 'admin' && (
+          <div className="mt-6 pt-6 border-t border-gray-200">
+            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+              Admin
+            </div>
+            <Link
+              to="/admin/users"
+              onClick={onClose}
+              className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
+                location.pathname === '/admin/users'
+                  ? 'bg-primary-50 text-primary-700 font-medium'
+                  : 'text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              <Users size={16} />
+              <span className="text-sm">User Management</span>
+            </Link>
+          </div>
+        )}
       </div>
       <div className="p-4 border-t border-gray-200 bg-white">
         <p className="text-xs text-gray-600 mb-1">You're in a team-managed project</p>

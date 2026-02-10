@@ -1,8 +1,8 @@
 import express from 'express';
 import rateLimit from 'express-rate-limit';
-import { register, login, getMe, forgotPassword, resetPassword } from '../controllers/authController.js';
+import { login, getMe, forgotPassword, resetPassword, changePassword } from '../controllers/authController.js';
 import { protect } from '../middleware/auth.js';
-import { validateRegister, validateLogin, validateForgotPassword, validateResetPassword } from '../middleware/validation.js';
+import { validateLogin, validateForgotPassword, validateResetPassword, validateChangePassword } from '../middleware/validation.js';
 
 const router = express.Router();
 
@@ -15,42 +15,6 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
   skipSuccessfulRequests: true, // Don't count successful requests
 });
-
-/**
- * @swagger
- * /auth/register:
- *   post:
- *     summary: Register a new user
- *     tags: [Authentication]
- *     security: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [name, email, password]
- *             properties:
- *               name:
- *                 type: string
- *                 minLength: 2
- *                 maxLength: 50
- *               email:
- *                 type: string
- *                 format: email
- *               password:
- *                 type: string
- *                 minLength: 6
- *               role:
- *                 type: string
- *                 enum: [admin, manager, project_manager, developer, viewer]
- *     responses:
- *       201:
- *         description: User registered successfully
- *       400:
- *         description: Validation error
- */
-router.post('/register', authLimiter, validateRegister, register);
 
 /**
  * @swagger
@@ -98,6 +62,7 @@ router.get('/me', protect, getMe);
 
 router.post('/forgot-password', authLimiter, validateForgotPassword, forgotPassword);
 router.put('/reset-password/:token', validateResetPassword, resetPassword);
+router.put('/change-password', protect, validateChangePassword, changePassword);
 
 export default router;
 

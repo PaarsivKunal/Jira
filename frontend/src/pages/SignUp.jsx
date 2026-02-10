@@ -25,9 +25,9 @@ const SignUp = () => {
       toast.error('Please enter a valid email address');
       return;
     }
-    // Store email and navigate to verification
-    localStorage.setItem('signupEmail', email);
-    navigate('/register');
+    // Registration is disabled - users must be created by admin
+    toast.error('Registration is disabled. Please contact your administrator to create an account.');
+    navigate('/login');
   };
 
   return (
