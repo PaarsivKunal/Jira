@@ -3,12 +3,16 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { SocketProvider } from './context/SocketContext';
 import ErrorBoundary from './components/common/ErrorBoundary';
+import InstallPrompt from './components/common/InstallPrompt';
 import Navbar from './components/common/Navbar';
 import Sidebar from './components/common/Sidebar';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import SignUp from './pages/SignUp';
+import ResetPassword from './pages/ResetPassword';
+import ForgotPassword from './pages/ForgotPassword';
 import AccountDetails from './pages/AccountDetails';
 import IntegrationSettings from './pages/IntegrationSettings';
 import SiteName from './pages/SiteName';
@@ -50,13 +54,38 @@ const ProtectedRoute = ({ children }) => {
 
 const Layout = ({ children }) => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   return (
-    <div className="flex min-h-screen">
-      <Sidebar isCollapsed={isSidebarCollapsed} onToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)} />
-      <div className="flex-1 flex flex-col min-w-0">
-        <Navbar />
-        <main className="flex-1 overflow-x-hidden">{children}</main>
+    <div className="flex min-h-screen relative">
+      {/* Mobile Sidebar Overlay */}
+      {isMobileMenuOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+      
+      {/* Sidebar - Hidden on mobile, shown as drawer */}
+      <div
+        className={`
+          fixed lg:static inset-y-0 left-0 z-50
+          transform transition-transform duration-300 ease-in-out
+          ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        `}
+      >
+        <Sidebar 
+          isCollapsed={isSidebarCollapsed} 
+          onToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          onClose={() => setIsMobileMenuOpen(false)}
+        />
+      </div>
+      
+      <div className="flex-1 flex flex-col min-w-0 w-full lg:w-auto">
+        <Navbar 
+          onMenuClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+        />
+        <main className="flex-1 overflow-x-hidden safe-bottom">{children}</main>
       </div>
     </div>
   );
@@ -67,12 +96,16 @@ function App() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <Router>
+          <SocketProvider>
+            <Router>
             <Toaster position="top-right" />
+            <InstallPrompt />
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/signup" element={<SignUp />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password/:token" element={<ResetPassword />} />
               <Route path="/" element={<Navigate to="/signup" replace />} />
               <Route path="/account-details" element={<AccountDetails />} />
               <Route
@@ -182,7 +215,8 @@ function App() {
                 }
               />
             </Routes>
-          </Router>
+            </Router>
+          </SocketProvider>
         </AuthProvider>
       </QueryClientProvider>
     </ErrorBoundary>

@@ -5,7 +5,20 @@ import User from '../models/User.js';
 // @access  Private
 export const getUsers = async (req, res) => {
   try {
-    const users = await User.find().select('-password').sort({ name: 1 });
+    const { department, role } = req.query;
+    const query = {};
+
+    // Filter by department if provided
+    if (department) {
+      query.department = department;
+    }
+
+    // Filter by role if provided
+    if (role) {
+      query.role = role;
+    }
+
+    const users = await User.find(query).select('-password').sort({ name: 1 });
     res.json(users);
   } catch (error) {
     res.status(500).json({ message: error.message });

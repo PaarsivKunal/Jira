@@ -10,7 +10,9 @@ export const sendTeamsNotification = async (issue, action) => {
         const webhookUrl = process.env.TEAMS_WEBHOOK_URL;
 
         if (!webhookUrl) {
-            console.warn('TEAMS_WEBHOOK_URL is not defined. Skipping Teams notification.');
+            if (process.env.NODE_ENV !== 'production') {
+              console.warn('TEAMS_WEBHOOK_URL is not defined. Skipping Teams notification.');
+            }
             return;
         }
 
@@ -44,10 +46,11 @@ export const sendTeamsNotification = async (issue, action) => {
         };
 
         await axios.post(webhookUrl, card);
-        console.log(`Teams notification sent for issue ${issue.key}`);
 
     } catch (error) {
-        console.error('Failed to send Teams notification:', error.message);
+        if (process.env.NODE_ENV !== 'production') {
+          console.error('Failed to send Teams notification:', error.message);
+        }
         // Don't throw, just log, so we don't block the main flow
     }
 };

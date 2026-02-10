@@ -2,9 +2,9 @@ import { Droppable, Draggable } from '@hello-pangea/dnd';
 import IssueCard from '../issues/IssueCard';
 import { Plus } from 'lucide-react';
 
-const BoardColumn = ({ columnId, title, issues, color, onCreateIssue }) => {
+const BoardColumn = ({ columnId, title, issues, color, onCreateIssue, className = '' }) => {
   return (
-    <div className="flex-1 min-w-[280px] bg-gray-50 rounded-lg">
+    <div className={`flex-1 min-w-[280px] bg-gray-50 rounded-lg ${className}`}>
       <div className={`${color} px-4 py-3 rounded-t-lg`}>
         <h3 className="font-semibold text-gray-800 text-sm uppercase tracking-wide">
           {title} ({issues.length})

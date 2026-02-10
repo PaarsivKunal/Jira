@@ -1,14 +1,16 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { Plus } from 'lucide-react';
+import { Plus, Filter } from 'lucide-react';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { getIssues, getProjects, createIssue } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import IssueModal from '../components/issues/IssueModal';
 import SkeletonLoader from '../components/common/SkeletonLoader';
 
 const Dashboard = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const { user } = useAuth();
 
   const { data: projectsResponse, isLoading: projectsLoading } = useQuery({
     queryKey: ['projects'],
@@ -67,13 +69,30 @@ const Dashboard = () => {
     },
   ];
 
+  // Format department name for display
+  const formatDepartment = (dept) => {
+    if (!dept) return '';
+    return dept.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+  };
+
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+    <div className="p-4 sm:p-6 bg-gray-50 min-h-screen">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Dashboard</h1>
+          {/* Show department filter info for Managers */}
+          {user?.role === 'manager' && user?.department && (
+            <div className="mt-2 flex items-center space-x-2 text-sm text-gray-600">
+              <Filter size={16} />
+              <span>
+                Showing projects for: <span className="font-semibold text-gray-900">{formatDepartment(user.department)}</span>
+              </span>
+            </div>
+          )}
+        </div>
         <button
           onClick={() => setIsModalOpen(true)}
-          className="btn btn-primary flex items-center space-x-2"
+          className="btn btn-primary flex items-center space-x-2 w-full sm:w-auto"
         >
           <Plus size={20} />
           <span>Create Issue</span>
@@ -81,7 +100,7 @@ const Dashboard = () => {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {issuesLoading || projectsLoading ? (
           Array(4).fill(0).map((_, index) => (
             <div key={index} className="card h-24 flex items-center p-4">

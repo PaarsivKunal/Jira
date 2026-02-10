@@ -35,12 +35,14 @@ import { useState, useEffect } from 'react';
 import IssueModal from '../components/issues/IssueModal';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext';
 import SkeletonLoader from '../components/common/SkeletonLoader';
 
 const ProjectBoard = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { joinProject, leaveProject } = useSocket();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeView, setActiveView] = useState('board');
   const [defaultStatus, setDefaultStatus] = useState(null);
@@ -80,6 +82,16 @@ const ProjectBoard = () => {
     );
   }) || [];
 
+  // Join project room for real-time updates
+  useEffect(() => {
+    if (id) {
+      joinProject(id);
+      return () => {
+        leaveProject(id);
+      };
+    }
+  }, [id, joinProject, leaveProject]);
+
   // Keyboard shortcut: Escape to clear search
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -115,7 +127,7 @@ const ProjectBoard = () => {
   };
 
   if (!project) {
-    return <div className="p-6">Loading...</div>;
+    return <div className="p-4 sm:p-6">Loading...</div>;
   }
 
   const views = [
@@ -138,26 +150,28 @@ const ProjectBoard = () => {
     <div className="bg-gray-50 min-h-screen">
       {/* Top Navigation */}
       <div className="bg-white border-b border-gray-200">
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-purple-600 rounded flex items-center justify-center">
+        <div className="px-4 sm:px-6 py-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3">
+            <div className="flex items-center space-x-3 min-w-0 flex-1">
+              <div className="w-8 h-8 bg-purple-600 rounded flex items-center justify-center flex-shrink-0">
                 <span className="text-white font-bold text-sm">
                   {project.name.charAt(0).toUpperCase()}
                 </span>
               </div>
-              <div>
-                <div className="flex items-center space-x-2">
-                  <h1 className="text-lg font-semibold text-gray-900">{project.name}</h1>
-                  <Lock className="w-4 h-4 text-gray-400" />
-                  <button className="text-sm text-gray-600 hover:text-gray-900">
-                    Project settings
-                  </button>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-col sm:flex-row sm:items-center space-y-1 sm:space-y-0 sm:space-x-2">
+                  <h1 className="text-base sm:text-lg font-semibold text-gray-900 truncate">{project.name}</h1>
+                  <div className="flex items-center space-x-2">
+                    <Lock className="w-4 h-4 text-gray-400" />
+                    <button className="text-xs sm:text-sm text-gray-600 hover:text-gray-900 whitespace-nowrap">
+                      Project settings
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-            <div className="flex items-center space-x-2">
-              <button className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 flex items-center space-x-2">
+            <div className="flex items-center space-x-2 w-full sm:w-auto">
+              <button className="px-3 sm:px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 flex items-center space-x-2 text-sm w-full sm:w-auto justify-center">
                 <Plus size={16} />
                 <span>Create</span>
               </button>
@@ -165,43 +179,49 @@ const ProjectBoard = () => {
           </div>
 
           {/* View Tabs */}
-          <div className="flex items-center space-x-1 border-b border-gray-200 -mb-4 overflow-x-auto scrollbar-hide">
-            {views.map((view) => {
-              const Icon = view.icon;
-              return (
-                <button
-                  key={view.id}
-                  onClick={() => setActiveView(view.id)}
-                  className={`px-4 py-2 flex items-center space-x-2 border-b-2 transition-colors ${activeView === view.id
-                    ? 'border-primary-600 text-primary-600'
-                    : 'border-transparent text-gray-600 hover:text-gray-900'
-                    }`}
-                >
-                  <Icon size={16} />
-                  <span className="text-sm font-medium">{view.label}</span>
-                </button>
-              );
-            })}
-            <button className="px-2 py-2 text-gray-400 hover:text-gray-600">
-              <Plus size={16} />
-            </button>
+          <div className="flex items-center space-x-1 border-b border-gray-200 -mb-4 overflow-x-auto scrollbar-hide pb-1">
+            <div className="flex items-center space-x-1 min-w-max px-2 sm:px-0">
+              {views.map((view) => {
+                const Icon = view.icon;
+                return (
+                  <button
+                    key={view.id}
+                    onClick={() => setActiveView(view.id)}
+                    className={`
+                      px-3 sm:px-4 py-2 flex items-center space-x-1 sm:space-x-2 
+                      border-b-2 transition-colors whitespace-nowrap
+                      ${activeView === view.id
+                        ? 'border-primary-600 text-primary-600'
+                        : 'border-transparent text-gray-600 hover:text-gray-900'
+                      }
+                    `}
+                  >
+                    <Icon size={14} className="sm:w-4 sm:h-4" />
+                    <span className="text-xs sm:text-sm font-medium">{view.label}</span>
+                  </button>
+                );
+              })}
+              <button className="px-2 py-2 text-gray-400 hover:text-gray-600">
+                <Plus size={16} />
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Board Controls */}
       {(activeView === 'board' || activeView === 'list') && (
-        <div className="bg-white border-b border-gray-200 px-6 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3 flex-1">
-              <div className="relative flex-1 max-w-md">
+        <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-3">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div className="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
+              <div className="relative flex-1 max-w-md min-w-0">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   type="text"
                   placeholder="Search board"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className={`w-full py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 ${searchQuery && issues.length > 0 ? 'pl-10 pr-20' : 'pl-10 pr-10'
+                  className={`w-full py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm sm:text-base ${searchQuery && issues.length > 0 ? 'pl-10 pr-20' : 'pl-10 pr-10'
                     }`}
                 />
                 {searchQuery && issues.length > 0 && (
@@ -220,20 +240,22 @@ const ProjectBoard = () => {
                 )}
               </div>
               {user && (
-                <div className="w-8 h-8 rounded-full bg-primary-600 flex items-center justify-center text-white text-xs">
+                <div className="hidden sm:flex w-8 h-8 rounded-full bg-primary-600 items-center justify-center text-white text-xs">
                   {user.name.charAt(0).toUpperCase()}
                 </div>
               )}
-              <button className="px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg">
-                Share
-              </button>
-              <button className="px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg flex items-center space-x-1">
-                <Filter size={16} />
-                <span>Filter</span>
-              </button>
-              <button className="px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg">
-                Group by: Status
-              </button>
+              <div className="hidden sm:flex items-center space-x-2">
+                <button className="px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg">
+                  Share
+                </button>
+                <button className="px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg flex items-center space-x-1">
+                  <Filter size={16} />
+                  <span>Filter</span>
+                </button>
+                <button className="px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg">
+                  Group by: Status
+                </button>
+              </div>
               <div className="relative">
                 <button
                   onClick={() => setIsShortcutsOpen(!isShortcutsOpen)}

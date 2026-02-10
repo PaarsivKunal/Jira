@@ -40,6 +40,8 @@ api.interceptors.response.use(
 export const register = (userData) => api.post('/auth/register', userData);
 export const login = (credentials) => api.post('/auth/login', credentials);
 export const getMe = () => api.get('/auth/me');
+export const forgotPassword = (email) => api.post('/auth/forgot-password', { email });
+export const resetPassword = (token, password) => api.put(`/auth/reset-password/${token}`, { password });
 
 // Microsoft Integration
 export const getMicrosoftAuthUrl = (integrationType) => 
@@ -67,6 +69,10 @@ export const updateIssue = (id, data) => api.put(`/issues/${id}`, data);
 export const deleteIssue = (id) => api.delete(`/issues/${id}`);
 export const updateIssueStatus = (id, status) =>
   api.patch(`/issues/${id}/status`, { status });
+export const approveIssue = (id, comment) =>
+  api.post(`/issues/${id}/approve`, { comment });
+export const rejectIssue = (id, comment) =>
+  api.post(`/issues/${id}/reject`, { comment });
 
 // Comments
 export const getComments = (issueId) =>
@@ -145,6 +151,11 @@ export const createReport = (projectId, data) => api.post(`/reports/projects/${p
 export const updateReport = (id, data) => api.put(`/reports/${id}`, data);
 export const deleteReport = (id) => api.delete(`/reports/${id}`);
 export const getReportData = (id) => api.get(`/reports/${id}/data`);
+export const exportReport = (id, format = 'csv') => 
+  api.get(`/reports/${id}/export`, { 
+    params: { format },
+    responseType: format === 'excel' ? 'blob' : format === 'json' ? 'json' : 'text',
+  });
 
 // Shortcuts
 export const getShortcuts = () => api.get('/shortcuts');
@@ -158,6 +169,20 @@ export const getSprints = (projectId, status) => api.get('/sprints', { params: {
 export const createSprint = (data) => api.post('/sprints', data);
 export const updateSprint = (id, data) => api.put(`/sprints/${id}`, data);
 export const deleteSprint = (id) => api.delete(`/sprints/${id}`);
+
+// Filters
+export const getFilters = (projectId) => api.get('/filters', { params: { projectId } });
+export const getFilter = (id) => api.get(`/filters/${id}`);
+export const createFilter = (data) => api.post('/filters', data);
+export const updateFilter = (id, data) => api.put(`/filters/${id}`, data);
+export const deleteFilter = (id) => api.delete(`/filters/${id}`);
+
+// Dashboard
+export const getWidgets = () => api.get('/dashboard/widgets');
+export const getWidgetData = (id) => api.get(`/dashboard/widgets/${id}/data`);
+export const createWidget = (data) => api.post('/dashboard/widgets', data);
+export const updateWidget = (id, data) => api.put(`/dashboard/widgets/${id}`, data);
+export const deleteWidget = (id) => api.delete(`/dashboard/widgets/${id}`);
 
 export default api;
 

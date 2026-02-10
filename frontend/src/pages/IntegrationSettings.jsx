@@ -60,7 +60,9 @@ const IntegrationSettings = () => {
       const response = await getUserTeams();
       setTeams(response.data.teams || []);
     } catch (error) {
-      console.error('Failed to load Teams:', error);
+      if (import.meta.env.DEV) {
+        console.error('Failed to load Teams:', error);
+      }
       const errorMessage = error.response?.data?.message || 'Failed to load Teams. Please check your connection.';
       toast.error(errorMessage);
     }
@@ -79,7 +81,9 @@ const IntegrationSettings = () => {
         toast.info('No channels found for this team');
       }
     } catch (error) {
-      console.error('Failed to load channels:', error);
+      if (import.meta.env.DEV) {
+        console.error('Failed to load channels:', error);
+      }
       const errorMessage = error.response?.data?.message || 'Failed to load channels. Please check your connection.';
       toast.error(errorMessage);
       setChannels([]);

@@ -18,7 +18,7 @@ const AppsDropdown = () => {
 
   const yourApps = [
     { name: 'Atlassian Home', icon: 'A', color: 'bg-blue-600' },
-    { name: 'Jira', icon: 'J', color: 'bg-blue-600' },
+    { name: 'Paarsiv', icon: 'P', color: 'bg-blue-600' },
     { name: 'Administrations', icon: '⚙', color: 'bg-gray-600' },
   ];
 
@@ -30,13 +30,13 @@ const AppsDropdown = () => {
       description: 'Document collaboration.',
     },
     {
-      name: 'Jira Product Discovery',
+      name: 'Paarsiv Product Discovery',
       icon: 'G',
       color: 'bg-blue-600',
       description: 'Prioritize, collaborate, and deliver new i...',
     },
     {
-      name: 'Jira Service Management',
+      name: 'Paarsiv Service Management',
       icon: '⚡',
       color: 'bg-blue-600',
       description: 'Collaborative IT service managemnt',

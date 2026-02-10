@@ -63,7 +63,9 @@ const KanbanBoard = ({ issues, onUpdate, onCreateIssue }) => {
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Failed to update issue status';
       toast.error(errorMessage);
-      console.error('Drag error:', error);
+      if (import.meta.env.DEV) {
+        console.error('Drag error:', error);
+      }
 
       // Optionally trigger a refresh to restore the original state
       if (onUpdate) {
@@ -76,7 +78,7 @@ const KanbanBoard = ({ issues, onUpdate, onCreateIssue }) => {
 
   return (
     <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="flex space-x-4 overflow-x-auto pb-4">
+      <div className="flex flex-col lg:flex-row gap-4 overflow-x-auto lg:overflow-x-visible pb-4 lg:pb-0">
         {columns.map((column) => (
           <BoardColumn
             key={column.id}
@@ -85,6 +87,7 @@ const KanbanBoard = ({ issues, onUpdate, onCreateIssue }) => {
             issues={groupedIssues[column.id] || []}
             color={column.color}
             onCreateIssue={onCreateIssue}
+            className="min-w-[280px] lg:min-w-0 lg:flex-1"
           />
         ))}
       </div>

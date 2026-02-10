@@ -21,16 +21,11 @@ export const getMicrosoftAuthUrl = async (req, res) => {
     const tenantId = process.env.MICROSOFT_TENANT_ID;
 
     if (!clientId || !tenantId) {
-      console.error('Microsoft integration not configured - missing CLIENT_ID or TENANT_ID');
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Microsoft integration not configured - missing CLIENT_ID or TENANT_ID');
+      }
       return res.status(500).json({ message: 'Microsoft integration not configured' });
     }
-
-    console.log('Generating OAuth URL:', {
-      integrationType,
-      redirectUri,
-      clientId: clientId.substring(0, 8) + '...', // Log partial ID for security
-      tenantId,
-    });
 
     const authUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize?` +
       `client_id=${clientId}&` +
@@ -42,7 +37,9 @@ export const getMicrosoftAuthUrl = async (req, res) => {
 
     res.json({ authUrl });
   } catch (error) {
-    console.error('Error generating auth URL:', error);
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('Error generating auth URL:', error);
+    }
     res.status(500).json({ message: error.message });
   }
 };
@@ -56,7 +53,9 @@ export const handleMicrosoftCallback = async (req, res) => {
 
     // Handle OAuth errors from Microsoft
     if (error) {
-      console.error('Microsoft OAuth error:', error, error_description);
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Microsoft OAuth error:', error, error_description);
+      }
       const errorMsg = error_description || error;
       return res.redirect(
         `${process.env.FRONTEND_URL || 'http://localhost:5173'}/settings?error=${encodeURIComponent(errorMsg)}`
@@ -64,27 +63,32 @@ export const handleMicrosoftCallback = async (req, res) => {
     }
 
     if (!code || !state) {
-      console.error('Missing code or state in callback');
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Missing code or state in callback');
+      }
       return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/settings?error=missing_params`);
     }
 
     const [userId, integrationType] = state.split('_');
 
     if (!userId || !integrationType) {
-      console.error('Invalid state parameter:', state);
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Invalid state parameter:', state);
+      }
       return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/settings?error=invalid_state`);
     }
 
     // Validate environment variables
     if (!process.env.MICROSOFT_CLIENT_ID || !process.env.MICROSOFT_CLIENT_SECRET || !process.env.MICROSOFT_TENANT_ID) {
-      console.error('Missing Microsoft configuration in environment variables');
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Missing Microsoft configuration in environment variables');
+      }
       return res.redirect(
         `${process.env.FRONTEND_URL || 'http://localhost:5173'}/settings?error=missing_config`
       );
     }
 
     const redirectUri = `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/microsoft/callback`;
-    console.log('Exchanging code for token with redirect_uri:', redirectUri);
 
     // Exchange code for tokens
     let tokenResponse;
@@ -106,23 +110,28 @@ export const handleMicrosoftCallback = async (req, res) => {
       );
     } catch (tokenError) {
       const errorDetails = tokenError.response?.data || tokenError.message;
-      console.error('Token exchange error:', JSON.stringify(errorDetails, null, 2));
-      console.error('Request details:', {
-        tenantId: process.env.MICROSOFT_TENANT_ID,
-        clientId: process.env.MICROSOFT_CLIENT_ID,
-        clientSecretLength: process.env.MICROSOFT_CLIENT_SECRET?.length || 0,
-        clientSecretPrefix: process.env.MICROSOFT_CLIENT_SECRET?.substring(0, 5) || 'missing',
-        redirectUri,
-        hasCode: !!code,
-        codeLength: code?.length || 0,
-      });
+      
+      // Log error details only in development
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Token exchange error:', JSON.stringify(errorDetails, null, 2));
+        console.error('Request details:', {
+          tenantId: process.env.MICROSOFT_TENANT_ID,
+          clientId: process.env.MICROSOFT_CLIENT_ID,
+          clientSecretLength: process.env.MICROSOFT_CLIENT_SECRET?.length || 0,
+          redirectUri,
+          hasCode: !!code,
+          codeLength: code?.length || 0,
+        });
+      }
       
       // Provide specific error messages
       if (tokenError.response?.data?.error === 'invalid_client') {
-        console.error('Invalid client error - checking configuration...');
-        console.error('Client ID exists:', !!process.env.MICROSOFT_CLIENT_ID);
-        console.error('Client Secret exists:', !!process.env.MICROSOFT_CLIENT_SECRET);
-        console.error('Tenant ID exists:', !!process.env.MICROSOFT_TENANT_ID);
+        if (process.env.NODE_ENV !== 'production') {
+          console.error('Invalid client error - checking configuration...');
+          console.error('Client ID exists:', !!process.env.MICROSOFT_CLIENT_ID);
+          console.error('Client Secret exists:', !!process.env.MICROSOFT_CLIENT_SECRET);
+          console.error('Tenant ID exists:', !!process.env.MICROSOFT_TENANT_ID);
+        }
         return res.redirect(
           `${process.env.FRONTEND_URL || 'http://localhost:5173'}/settings?error=invalid_client_credentials`
         );
@@ -145,7 +154,9 @@ export const handleMicrosoftCallback = async (req, res) => {
     }
 
     if (!tokenResponse.data.access_token) {
-      console.error('No access token in response:', tokenResponse.data);
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('No access token in response:', tokenResponse.data);
+      }
       return res.redirect(
         `${process.env.FRONTEND_URL || 'http://localhost:5173'}/settings?error=no_access_token`
       );
@@ -161,7 +172,9 @@ export const handleMicrosoftCallback = async (req, res) => {
         headers: { Authorization: `Bearer ${access_token}` },
       });
     } catch (userError) {
-      console.error('Get user info error:', userError.response?.data || userError.message);
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Get user info error:', userError.response?.data || userError.message);
+      }
       return res.redirect(
         `${process.env.FRONTEND_URL || 'http://localhost:5173'}/settings?error=user_info_failed`
       );
@@ -206,12 +219,13 @@ export const handleMicrosoftCallback = async (req, res) => {
     }
 
     await integration.save();
-    console.log('Integration saved successfully for user:', userId);
 
     res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/settings?success=connected`);
   } catch (error) {
-    console.error('OAuth callback error:', error.response?.data || error.message);
-    console.error('Full error stack:', error.stack);
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('OAuth callback error:', error.response?.data || error.message);
+      console.error('Full error stack:', error.stack);
+    }
     const errorMessage = error.response?.data?.error_description || 
                         error.response?.data?.error || 
                         error.message || 
@@ -313,10 +327,11 @@ export const getChannels = async (req, res) => {
     );
 
     const channels = await getTeamChannels(accessToken, teamId);
-    console.log(`Returning ${channels.length} channels for team ${teamId}`);
     res.json({ channels: channels || [] });
   } catch (error) {
-    console.error('Error in getChannels controller:', error.message);
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('Error in getChannels controller:', error.message);
+    }
     res.status(500).json({ message: error.message });
   }
 };

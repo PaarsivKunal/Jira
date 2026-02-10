@@ -30,6 +30,18 @@ const projectSchema = mongoose.Schema(
         ref: 'User',
       },
     ],
+    department: {
+      type: String,
+      enum: ['salesforce', 'web_development', 'mobile_development'],
+    },
+    technologies: {
+      type: [String],
+      default: [],
+    },
+    clouds: {
+      type: [String],
+      default: [],
+    },
   },
   {
     timestamps: true,
@@ -40,6 +52,7 @@ const projectSchema = mongoose.Schema(
 projectSchema.index({ lead: 1 }); // For finding projects by lead
 projectSchema.index({ members: 1 }); // For finding projects by member
 projectSchema.index({ createdAt: -1 }); // For sorting by creation date
+projectSchema.index({ department: 1 }); // For filtering by department
 
 const Project = mongoose.model('Project', projectSchema);
 

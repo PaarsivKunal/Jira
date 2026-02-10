@@ -9,11 +9,12 @@ import {
   LogOut,
   User,
   ChevronDown,
+  Menu,
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import AppsDropdown from './AppsDropdown';
 
-const Navbar = () => {
+const Navbar = ({ onMenuClick }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -37,17 +38,26 @@ const Navbar = () => {
   };
 
   return (
-    <nav className="bg-white border-b border-gray-200 sticky top-0 z-40">
-      <div className="px-6 py-3">
+    <nav className="bg-white border-b border-gray-200 sticky top-0 z-40 safe-top">
+      <div className="px-4 sm:px-6 py-3">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-8">
-            <div className="flex items-center space-x-2">
+          {/* Mobile Menu Button */}
+          <button
+            onClick={onMenuClick}
+            className="lg:hidden p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors mr-2"
+            aria-label="Toggle menu"
+          >
+            <Menu size={24} />
+          </button>
+          
+          <div className="flex items-center space-x-4 sm:space-x-8 flex-1 min-w-0">
+            <div className="flex items-center space-x-2 min-w-0">
               <AppsDropdown />
-              <Link to="/dashboard" className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-primary-600 rounded flex items-center justify-center">
-                  <span className="text-white font-bold">J</span>
+              <Link to="/dashboard" className="flex items-center space-x-2 min-w-0">
+                <div className="w-8 h-8 bg-primary-600 rounded flex items-center justify-center flex-shrink-0">
+                  <span className="text-white font-bold text-sm sm:text-base">P</span>
                 </div>
-                <span className="text-lg font-semibold text-gray-900">Jira</span>
+                <span className="text-base sm:text-lg font-semibold text-gray-900 truncate">Paarsiv</span>
               </Link>
             </div>
             <div className="hidden lg:flex items-center space-x-1">
@@ -80,17 +90,17 @@ const Navbar = () => {
               </button>
             </div>
           </div>
-          <div className="flex items-center space-x-2">
-            <button className="px-3 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 flex items-center space-x-2 text-sm font-medium transition-colors">
+          <div className="flex items-center space-x-1 sm:space-x-2">
+            <button className="px-2 sm:px-3 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 flex items-center space-x-1 sm:space-x-2 text-sm font-medium transition-colors">
               <Plus size={16} />
-              <span>Create</span>
+              <span className="hidden sm:inline">Create</span>
             </button>
-            <div className="hidden md:block relative">
+            <div className="hidden sm:block relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search"
-                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 w-64 text-sm"
+                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 w-48 lg:w-64 text-sm"
               />
             </div>
             <div className="flex items-center space-x-1">
@@ -101,7 +111,7 @@ const Navbar = () => {
               <button className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
                 <Settings size={20} />
               </button>
-              <button className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+              <button className="hidden md:block p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
                 <HelpCircle size={20} />
               </button>
               {user && (
@@ -120,7 +130,7 @@ const Navbar = () => {
                     </div>
                     <ChevronDown 
                       size={16} 
-                      className={`text-gray-600 transition-transform ${isUserMenuOpen ? 'rotate-180' : ''}`} 
+                      className={`hidden sm:block text-gray-600 transition-transform ${isUserMenuOpen ? 'rotate-180' : ''}`} 
                     />
                   </button>
 

@@ -1,10 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { getReport, createReport, updateReport, getReportData } from '../services/api';
+import { getReport, createReport, updateReport, getReportData, getSprints } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { ArrowLeft, Save, Eye, BarChart3, PieChart } from 'lucide-react';
+import FilterBuilder from '../components/reports/FilterBuilder';
 
 const ReportBuilder = () => {
   const { id, reportId } = useParams();
@@ -27,7 +28,37 @@ const ReportBuilder = () => {
     config: {
       groupBy: 'status',
       period: 'week',
+      sprintId: null,
+      filters: {
+        status: [],
+        type: [],
+        priority: [],
+        assignee: [],
+        reporter: [],
+        labels: [],
+      },
+      dateRange: {
+        start: null,
+        end: null,
+      },
+      filterLogic: 'AND',
     },
+  });
+
+  const handleFilterChange = (filterConfig) => {
+    setFormData(prev => ({
+      ...prev,
+      config: {
+        ...prev.config,
+        ...filterConfig,
+      },
+    }));
+  };
+
+  const { data: sprints } = useQuery({
+    queryKey: ['sprints', id],
+    queryFn: () => getSprints(id).then((res) => res.data),
+    enabled: formData.type === 'burndown_chart' || formData.type === 'sprint_progress',
   });
 
   useEffect(() => {
@@ -82,6 +113,14 @@ const ReportBuilder = () => {
     user_workload: 'User Workload Report',
     version_workload: 'Version Workload Report',
     workload_pie_chart: 'Workload Pie Chart Report',
+    burndown_chart: 'Burndown Chart',
+    velocity_chart: 'Velocity Chart',
+    cumulative_flow: 'Cumulative Flow Diagram',
+    gantt_chart: 'Gantt Chart',
+    heatmap: 'Activity Heatmap',
+    scatter_plot: 'Scatter Plot',
+    time_tracking_pie: 'Time Tracking Pie Chart',
+    sprint_progress: 'Sprint Progress',
   };
 
   return (
@@ -139,16 +178,14 @@ const ReportBuilder = () => {
         </div>
 
         <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Project or Saved filter</h2>
-          <div className="mb-2">
-            <span className="text-gray-900">Landing page</span>
-            <a href="#" className="text-primary-600 hover:underline ml-2">
-              Change Filter or Project...
-            </a>
-          </div>
-          <p className="text-sm text-gray-600">
-            Project or saved filter to use as the basis for the graph.
-          </p>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Advanced Filters</h2>
+          <FilterBuilder
+            filters={formData.config.filters}
+            dateRange={formData.config.dateRange}
+            filterLogic={formData.config.filterLogic}
+            onChange={handleFilterChange}
+            projectId={id}
+          />
         </div>
 
         {formData.type === 'pie_chart' && (
@@ -222,6 +259,57 @@ const ReportBuilder = () => {
             </select>
             <p className="text-sm text-gray-600 mt-2">
               Select which field to group issues by.
+            </p>
+          </div>
+        )}
+
+        {(formData.type === 'burndown_chart' || formData.type === 'sprint_progress') && (
+          <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Sprint</h2>
+            <select
+              value={formData.config.sprintId || ''}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  config: { ...formData.config, sprintId: e.target.value || null },
+                })
+              }
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="">Select Sprint</option>
+              {sprints?.map((sprint) => (
+                <option key={sprint._id} value={sprint._id}>
+                  {sprint.name} ({sprint.status})
+                </option>
+              ))}
+            </select>
+            <p className="text-sm text-gray-600 mt-2">
+              Select the sprint for this report.
+            </p>
+          </div>
+        )}
+
+        {(formData.type === 'cumulative_flow' || formData.type === 'heatmap') && (
+          <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Period</h2>
+            <select
+              value={formData.config.period}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  config: { ...formData.config, period: e.target.value },
+                })
+              }
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="day">Day</option>
+              <option value="week">Week</option>
+              <option value="month">Month</option>
+              <option value="quarter">Quarter</option>
+              <option value="year">Year</option>
+            </select>
+            <p className="text-sm text-gray-600 mt-2">
+              Select the time period for grouping the data.
             </p>
           </div>
         )}

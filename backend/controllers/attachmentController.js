@@ -194,7 +194,9 @@ export const uploadAttachment = async (req, res) => {
         try {
           await fs.unlink(req.file.path);
         } catch (unlinkError) {
-          console.error('Error deleting file:', unlinkError);
+          if (process.env.NODE_ENV !== 'production') {
+            console.error('Error deleting file:', unlinkError);
+          }
         }
       }
       res.status(500).json({ message: error.message });
@@ -240,7 +242,9 @@ export const uploadProjectAttachment = async (req, res) => {
         try {
           await fs.unlink(req.file.path);
         } catch (unlinkError) {
-          console.error('Error deleting file:', unlinkError);
+          if (process.env.NODE_ENV !== 'production') {
+            console.error('Error deleting file:', unlinkError);
+          }
         }
       }
       res.status(500).json({ message: error.message });
@@ -339,7 +343,9 @@ export const deleteAttachment = async (req, res) => {
       try {
         await fs.unlink(filePath);
       } catch (unlinkError) {
-        console.error('Error deleting file:', unlinkError);
+        if (process.env.NODE_ENV !== 'production') {
+          console.error('Error deleting file:', unlinkError);
+        }
         // Continue with database deletion even if file deletion fails
       }
     }

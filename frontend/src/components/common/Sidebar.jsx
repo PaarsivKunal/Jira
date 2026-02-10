@@ -1,10 +1,10 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getProjects } from '../../services/api';
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, X } from 'lucide-react';
 import { useState } from 'react';
 
-const Sidebar = ({ isCollapsed, onToggle }) => {
+const Sidebar = ({ isCollapsed, onToggle, onClose }) => {
   const location = useLocation();
   const { data: projectsResponse } = useQuery({
     queryKey: ['projects'],
@@ -20,7 +20,7 @@ const Sidebar = ({ isCollapsed, onToggle }) => {
 
   if (isCollapsed) {
     return (
-      <aside className="w-12 bg-white border-r border-gray-200 min-h-screen flex flex-col items-center py-4">
+      <aside className="w-12 bg-white border-r border-gray-200 min-h-screen flex flex-col items-center py-4 safe-top safe-bottom">
         <button
           onClick={onToggle}
           className="p-2 hover:bg-gray-100 rounded-lg transition-colors mb-4"
@@ -52,8 +52,20 @@ const Sidebar = ({ isCollapsed, onToggle }) => {
   }
 
   return (
-    <aside className="w-64 bg-white border-r border-gray-200 min-h-screen flex flex-col">
-      <div className="p-4 flex-1">
+    <aside className="w-64 bg-white border-r border-gray-200 min-h-screen flex flex-col safe-top safe-bottom">
+      {/* Mobile Close Button */}
+      <div className="lg:hidden flex items-center justify-between p-4 border-b border-gray-200">
+        <h2 className="text-sm font-semibold text-gray-900">Menu</h2>
+        <button
+          onClick={onClose}
+          className="p-2 hover:bg-gray-100 rounded transition-colors"
+          aria-label="Close menu"
+        >
+          <X size={20} className="text-gray-600" />
+        </button>
+      </div>
+      
+      <div className="p-4 flex-1 overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center space-x-2">
             <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -65,7 +77,7 @@ const Sidebar = ({ isCollapsed, onToggle }) => {
           </div>
           <button
             onClick={onToggle}
-            className="p-1 hover:bg-gray-100 rounded transition-colors"
+            className="hidden lg:block p-1 hover:bg-gray-100 rounded transition-colors"
             title="Collapse sidebar"
           >
             <ChevronLeft size={16} className="text-gray-600" />
@@ -81,6 +93,7 @@ const Sidebar = ({ isCollapsed, onToggle }) => {
               <Link
                 key={project._id}
                 to={`/projects/${project._id}/board`}
+                onClick={onClose}
                 className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
                   isActive
                     ? 'bg-primary-50 text-primary-700 font-medium'

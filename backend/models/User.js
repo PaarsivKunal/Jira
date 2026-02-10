@@ -28,6 +28,19 @@ const userSchema = mongoose.Schema(
       enum: ['admin', 'manager', 'project_manager', 'developer', 'viewer'],
       default: 'developer',
     },
+    department: {
+      type: String,
+      enum: ['salesforce', 'web_development', 'mobile_development', null],
+      default: null,
+    },
+    resetPasswordToken: {
+      type: String,
+      default: null,
+    },
+    resetPasswordExpire: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
@@ -37,6 +50,7 @@ const userSchema = mongoose.Schema(
 // Indexes for faster queries
 userSchema.index({ email: 1 }); // Already unique, but explicit index
 userSchema.index({ role: 1 }); // For filtering by role
+userSchema.index({ department: 1 }); // For filtering by department
 
 // Ensure email is lowercase before saving
 userSchema.pre('save', async function (next) {

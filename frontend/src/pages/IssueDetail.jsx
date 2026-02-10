@@ -19,10 +19,14 @@ import {
   getActivities,
   getUsers,
   getIssues,
+  approveIssue,
+  rejectIssue,
+  getIssueAttachments,
 } from '../services/api';
 import { format, formatDistanceToNow } from 'date-fns';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext';
 import toast from 'react-hot-toast';
 import {
   X,
@@ -40,12 +44,17 @@ import {
   Edit2,
   Trash2,
   Download,
+  CheckCircle,
+  XCircle,
+  FileText,
+  Image,
 } from 'lucide-react';
 
 const IssueDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { joinProject, leaveProject } = useSocket();
   const [commentText, setCommentText] = useState('');
   const [activeTab, setActiveTab] = useState('comments');
   const [timeSpent, setTimeSpent] = useState({ hours: 0, minutes: 0 });
@@ -58,6 +67,10 @@ const IssueDetail = () => {
   const [linkType, setLinkType] = useState('is_blocked_by');
   const [showAttachModal, setShowAttachModal] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [approvalComment, setApprovalComment] = useState('');
+  const [rejectionComment, setRejectionComment] = useState('');
+  const [showApprovalModal, setShowApprovalModal] = useState(false);
+  const [showRejectionModal, setShowRejectionModal] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: issue } = useQuery({
@@ -108,6 +121,17 @@ const IssueDetail = () => {
     queryFn: () => getUsers().then((res) => res.data),
   });
 
+  // Join project room for real-time updates
+  useEffect(() => {
+    if (issue?.projectId) {
+      const projectId = issue.projectId._id || issue.projectId;
+      joinProject(projectId);
+      return () => {
+        leaveProject(projectId);
+      };
+    }
+  }, [issue?.projectId, joinProject, leaveProject]);
+
   useEffect(() => {
     if (issue) {
       setDescription(issue.description || '');
@@ -127,6 +151,32 @@ const IssueDetail = () => {
     onSuccess: () => {
       queryClient.invalidateQueries(['issue', id]);
       toast.success('Status updated');
+    },
+  });
+
+  const approveMutation = useMutation({
+    mutationFn: (comment) => approveIssue(id, comment),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['issue', id]);
+      setApprovalComment('');
+      setShowApprovalModal(false);
+      toast.success('Work approved successfully');
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || 'Failed to approve work');
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: (comment) => rejectIssue(id, comment),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['issue', id]);
+      setRejectionComment('');
+      setShowRejectionModal(false);
+      toast.success('Work rejected');
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || 'Failed to reject work');
     },
   });
 
@@ -378,6 +428,132 @@ const IssueDetail = () => {
           </button>
         </div>
       </div>
+
+      {/* Approval Status Banner */}
+      {issue.status === 'done' && issue.approvalStatus && (
+        <div className={`px-6 py-3 border-b ${
+          issue.approvalStatus === 'approved'
+            ? 'bg-green-50 border-green-200'
+            : issue.approvalStatus === 'rejected'
+            ? 'bg-red-50 border-red-200'
+            : 'bg-yellow-50 border-yellow-200'
+        }`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              {issue.approvalStatus === 'approved' && (
+                <>
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                  <div>
+                    <p className="text-sm font-medium text-green-900">
+                      Work Approved
+                    </p>
+                    <p className="text-xs text-green-700">
+                      Approved by {issue.approvedBy?.name || 'Manager'} on{' '}
+                      {issue.approvedAt ? format(new Date(issue.approvedAt), 'MMM d, yyyy') : ''}
+                    </p>
+                    {issue.approvalComment && (
+                      <p className="text-xs text-green-600 mt-1">{issue.approvalComment}</p>
+                    )}
+                  </div>
+                </>
+              )}
+              {issue.approvalStatus === 'rejected' && (
+                <>
+                  <XCircle className="w-5 h-5 text-red-600" />
+                  <div>
+                    <p className="text-sm font-medium text-red-900">
+                      Work Rejected
+                    </p>
+                    <p className="text-xs text-red-700">
+                      Rejected by {issue.rejectedBy?.name || 'Manager'} on{' '}
+                      {issue.rejectedAt ? format(new Date(issue.rejectedAt), 'MMM d, yyyy') : ''}
+                    </p>
+                    {issue.rejectionComment && (
+                      <p className="text-xs text-red-600 mt-1">{issue.rejectionComment}</p>
+                    )}
+                  </div>
+                </>
+              )}
+              {issue.approvalStatus === 'pending' && (
+                <>
+                  <Clock className="w-5 h-5 text-yellow-600" />
+                  <div>
+                    <p className="text-sm font-medium text-yellow-900">
+                      Pending Approval
+                    </p>
+                    <p className="text-xs text-yellow-700">
+                      Waiting for manager approval
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
+            {(user?.role === 'manager' || user?.role === 'admin') && issue.approvalStatus === 'pending' && (
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => setShowApprovalModal(true)}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 flex items-center space-x-1"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  <span>Approve</span>
+                </button>
+                <button
+                  onClick={() => setShowRejectionModal(true)}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 flex items-center space-x-1"
+                >
+                  <XCircle className="w-4 h-4" />
+                  <span>Reject</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Proof of Work Section */}
+      {issue.status === 'done' && issue.proofAttachments && issue.proofAttachments.length > 0 && (
+        <div className="px-6 py-4 bg-white border-b border-gray-200">
+          <h3 className="text-sm font-semibold text-gray-900 mb-3">Proof of Work</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {issue.proofAttachments.map((attachment) => {
+              const isImage = attachment.mimeType?.startsWith('image/');
+              const fileUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}${attachment.path}`;
+              
+              return (
+                <div key={attachment._id} className="border border-gray-200 rounded-lg overflow-hidden">
+                  {isImage ? (
+                    <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="block">
+                      <img
+                        src={fileUrl}
+                        alt={attachment.originalName}
+                        className="w-full h-32 object-cover hover:opacity-90 transition-opacity"
+                      />
+                    </a>
+                  ) : (
+                    <a
+                      href={fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex flex-col items-center justify-center p-4 hover:bg-gray-50 transition-colors"
+                    >
+                      <FileText className="w-8 h-8 text-gray-400 mb-2" />
+                      <span className="text-xs text-gray-600 text-center truncate w-full px-2">
+                        {attachment.originalName}
+                      </span>
+                    </a>
+                  )}
+                  <div className="p-2 bg-gray-50">
+                    <p className="text-xs text-gray-600 truncate">{attachment.originalName}</p>
+                    <p className="text-xs text-gray-500">
+                      {(attachment.size / 1024).toFixed(1)} KB
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="flex">
         {/* Main Content */}
@@ -1006,6 +1182,91 @@ const IssueDetail = () => {
           </div>
         </div>
       </div>
+
+      {/* Approval Modal */}
+      {showApprovalModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4">Approve Work</h3>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Approval Comment (Optional)
+              </label>
+              <textarea
+                value={approvalComment}
+                onChange={(e) => setApprovalComment(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                rows={4}
+                placeholder="Add a comment about the approval..."
+              />
+            </div>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowApprovalModal(false);
+                  setApprovalComment('');
+                }}
+                className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => approveMutation.mutate(approvalComment)}
+                disabled={approveMutation.isLoading}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+              >
+                {approveMutation.isLoading ? 'Approving...' : 'Approve'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rejection Modal */}
+      {showRejectionModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4">Reject Work</h3>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Rejection Comment (Required) *
+              </label>
+              <textarea
+                value={rejectionComment}
+                onChange={(e) => setRejectionComment(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                rows={4}
+                placeholder="Explain why the work is being rejected..."
+                required
+              />
+            </div>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowRejectionModal(false);
+                  setRejectionComment('');
+                }}
+                className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (!rejectionComment.trim()) {
+                    toast.error('Please provide a rejection comment');
+                    return;
+                  }
+                  rejectMutation.mutate(rejectionComment);
+                }}
+                disabled={rejectMutation.isLoading || !rejectionComment.trim()}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+              >
+                {rejectMutation.isLoading ? 'Rejecting...' : 'Reject'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -89,6 +89,40 @@ const issueSchema = mongoose.Schema(
         },
       },
     ],
+    // Approval workflow fields
+    approvalStatus: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected', null],
+      default: null,
+    },
+    proofAttachments: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Attachment',
+      },
+    ],
+    approvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    },
+    approvedAt: {
+      type: Date,
+    },
+    approvalComment: {
+      type: String,
+      trim: true,
+    },
+    rejectedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    },
+    rejectedAt: {
+      type: Date,
+    },
+    rejectionComment: {
+      type: String,
+      trim: true,
+    },
   },
   {
     timestamps: true,

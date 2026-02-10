@@ -40,6 +40,10 @@ export const validateRegister = [
     .optional()
     .isIn(['admin', 'manager', 'project_manager', 'developer', 'viewer'])
     .withMessage('Invalid role'),
+  body('department')
+    .optional()
+    .isIn(['salesforce', 'web_development', 'mobile_development', null])
+    .withMessage('Invalid department'),
   handleValidationErrors,
 ];
 
@@ -82,6 +86,18 @@ export const validateCreateProject = [
     .optional()
     .isArray()
     .withMessage('Members must be an array'),
+  body('department')
+    .optional()
+    .isIn(['salesforce', 'web_development', 'mobile_development'])
+    .withMessage('Invalid department'),
+  body('technologies')
+    .optional()
+    .isArray()
+    .withMessage('Technologies must be an array'),
+  body('clouds')
+    .optional()
+    .isArray()
+    .withMessage('Clouds must be an array'),
   handleValidationErrors,
 ];
 
@@ -263,6 +279,23 @@ export const validatePagination = [
     .optional()
     .isInt({ min: 1, max: 100 })
     .withMessage('Limit must be between 1 and 100'),
+  handleValidationErrors,
+];
+
+export const validateForgotPassword = [
+  body('email')
+    .notEmpty()
+    .withMessage('Email is required')
+    .isEmail()
+    .withMessage('Please provide a valid email')
+    .normalizeEmail(),
+  handleValidationErrors,
+];
+
+export const validateResetPassword = [
+  body('password')
+    .isLength({ min: 6 })
+    .withMessage('Password must be at least 6 characters'),
   handleValidationErrors,
 ];
 

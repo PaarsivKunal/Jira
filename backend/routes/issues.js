@@ -6,6 +6,8 @@ import {
   updateIssue,
   deleteIssue,
   updateIssueStatus,
+  approveIssue,
+  rejectIssue,
 } from '../controllers/issueController.js';
 import { getChildIssues, createChildIssue } from '../controllers/childIssueController.js';
 import { getLinkedIssues, linkIssues, unlinkIssues } from '../controllers/linkController.js';
@@ -17,6 +19,7 @@ import {
   validateUpdateIssue,
   validateUpdateIssueStatus,
   validateLinkIssue,
+  validateCreateWorkLog,
   validateMongoId,
   validatePagination,
 } from '../middleware/validation.js';
@@ -31,6 +34,14 @@ router
 router
   .route('/:id/status')
   .patch(protect, validateMongoId('id'), validateUpdateIssueStatus, updateIssueStatus);
+
+router
+  .route('/:id/approve')
+  .post(protect, validateMongoId('id'), approveIssue);
+
+router
+  .route('/:id/reject')
+  .post(protect, validateMongoId('id'), rejectIssue);
 
 router
   .route('/:id/children')
@@ -49,7 +60,7 @@ router
 router
   .route('/:id/worklogs')
   .get(protect, validateMongoId('id'), getWorkLogs)
-  .post(protect, validateMongoId('id'), createWorkLog);
+  .post(protect, validateMongoId('id'), validateCreateWorkLog, createWorkLog);
 
 router
   .route('/:id/activities')

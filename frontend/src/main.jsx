@@ -7,3 +7,6 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   <App />
 )
 
+// Service worker registration is handled automatically by vite-plugin-pwa
+// The plugin will inject the registration code during build
+

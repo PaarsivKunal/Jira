@@ -2,6 +2,7 @@ import Issue from '../models/Issue.js';
 import Project from '../models/Project.js';
 import User from '../models/User.js';
 import Activity from '../models/Activity.js';
+import Attachment from '../models/Attachment.js';
 import { generateIssueKey } from '../utils/generateIssueKey.js';
 import { getPaginationParams, createPaginationResponse } from '../utils/pagination.js';
 import { CONSTANTS } from '../config/constants.js';
@@ -150,18 +151,41 @@ export const getIssues = async (req, res) => {
         { assignees: req.user._id }
       ];
     } else if (req.user.role === ROLES.MANAGER) {
-      // Manager sees all issues assigned to employees (non-admin, non-manager users)
-      const employees = await User.find({
-        role: { $nin: [ROLES.ADMIN, ROLES.MANAGER] }
-      }).select('_id');
+      // Manager sees issues from projects matching their department
+      let projectQuery = {};
       
-      const employeeIds = employees.map(emp => emp._id);
+      if (req.user.department) {
+        projectQuery.department = req.user.department;
+      } else {
+        // Manager without department sees no issues
+        projectQuery._id = null;
+      }
       
-      // Manager sees issues assigned to employees
-      query.$or = [
-        { assignee: { $in: employeeIds } },
-        { assignees: { $in: employeeIds } }
-      ];
+      // Get projects matching manager's department
+      const matchingProjects = await Project.find(projectQuery).select('_id');
+      const matchingProjectIds = matchingProjects.map(p => p._id);
+      
+      if (matchingProjectIds.length > 0) {
+        // Manager sees issues from matching projects assigned to employees
+        const employees = await User.find({
+          role: { $nin: [ROLES.ADMIN, ROLES.MANAGER] }
+        }).select('_id');
+        
+        const employeeIds = employees.map(emp => emp._id);
+        
+        query.$and = [
+          { projectId: { $in: matchingProjectIds } },
+          {
+            $or: [
+              { assignee: { $in: employeeIds } },
+              { assignees: { $in: employeeIds } }
+            ]
+          }
+        ];
+      } else {
+        // No matching projects, return empty result
+        query._id = null;
+      }
     }
 
 
@@ -192,6 +216,9 @@ export const getIssue = async (req, res) => {
       .populate('assignee', 'name email avatar')
       .populate('assignees', 'name email avatar')
       .populate('reporter', 'name email avatar')
+      .populate('proofAttachments', 'filename originalName mimeType size path uploadedBy createdAt')
+      .populate('approvedBy', 'name email avatar')
+      .populate('rejectedBy', 'name email avatar')
       .populate({
         path: 'linkedIssues.issueId',
         populate: [
@@ -277,6 +304,7 @@ export const createIssue = async (req, res) => {
     const populatedIssue = await Issue.findById(issue._id)
       .populate('projectId', 'name key')
       .populate('assignee', 'name email avatar')
+      .populate('assignees', 'name email avatar')
       .populate('reporter', 'name email avatar');
 
     // Send notifications
@@ -292,11 +320,20 @@ export const createIssue = async (req, res) => {
     
     assigneesToNotify.forEach((assignee) => {
       if (assignee?.email) {
-        sendIssueCreatedNotification(req.user._id, populatedIssue, assignee).catch((error) => {
-          console.error('Failed to send issue creation notification:', error);
+        sendIssueCreatedNotification(populatedIssue, assignee).catch((error) => {
+          if (process.env.NODE_ENV !== 'production') {
+            console.error('Failed to send issue creation notification:', error);
+          }
         });
       }
     });
+
+    // Emit Socket.io event for real-time updates
+    const io = req.app.get('io');
+    if (io) {
+      const projectIdForSocket = populatedIssue.projectId._id || populatedIssue.projectId || projectId;
+      io.to(`project-${projectIdForSocket}`).emit('issue:created', populatedIssue);
+    }
 
     res.status(201).json(populatedIssue);
   } catch (error) {
@@ -353,6 +390,27 @@ export const updateIssue = async (req, res) => {
       updateData.assignees = updateData.assignee ? [updateData.assignee] : [];
     }
 
+    // Handle proof attachments when marking as "done"
+    if (req.body.status === 'done' && oldStatus !== 'done') {
+      // If proof attachments are provided, link them to the issue
+      if (req.body.proofAttachments && Array.isArray(req.body.proofAttachments)) {
+        updateData.proofAttachments = req.body.proofAttachments;
+        updateData.approvalStatus = 'pending'; // Set approval status to pending
+      } else {
+        // If no proof attachments provided, still set to pending for manager approval
+        updateData.approvalStatus = 'pending';
+      }
+    } else if (req.body.status !== 'done' && oldStatus === 'done') {
+      // If changing from "done" to another status, reset approval
+      updateData.approvalStatus = null;
+      updateData.approvedBy = null;
+      updateData.approvedAt = null;
+      updateData.approvalComment = null;
+      updateData.rejectedBy = null;
+      updateData.rejectedAt = null;
+      updateData.rejectionComment = null;
+    }
+
     const updatedIssue = await Issue.findByIdAndUpdate(
       req.params.id,
       updateData,
@@ -361,7 +419,10 @@ export const updateIssue = async (req, res) => {
       .populate('projectId', 'name key')
       .populate('assignee', 'name email avatar')
       .populate('assignees', 'name email avatar')
-      .populate('reporter', 'name email avatar');
+      .populate('reporter', 'name email avatar')
+      .populate('proofAttachments', 'filename originalName mimeType size path uploadedBy createdAt')
+      .populate('approvedBy', 'name email avatar')
+      .populate('rejectedBy', 'name email avatar');
 
     // Create activity for status change
     if (req.body.status && req.body.status !== oldStatus) {
@@ -398,8 +459,10 @@ export const updateIssue = async (req, res) => {
         if (assignee?.email) {
           const wasPreviouslyAssigned = oldAssignees.includes(assignee._id?.toString() || assignee.toString());
           if (!wasPreviouslyAssigned) {
-            sendAssignmentNotification(req.user._id, updatedIssue, assignee, req.user).catch((error) => {
-              console.error('Failed to send assignment notification:', error);
+            sendAssignmentNotification(updatedIssue, assignee, req.user).catch((error) => {
+              if (process.env.NODE_ENV !== 'production') {
+                console.error('Failed to send assignment notification:', error);
+              }
             });
           }
         }
@@ -428,11 +491,32 @@ export const updateIssue = async (req, res) => {
       });
     }
 
+    // Send update notifications to all assignees
+    const assigneesToNotifyForUpdate = updatedIssue.assignees && updatedIssue.assignees.length > 0 
+      ? updatedIssue.assignees 
+      : (updatedIssue.assignee ? [updatedIssue.assignee] : []);
+    
     // Send notifications
     await Promise.all([
       sendTeamsNotification(updatedIssue, 'updated'),
-      sendIssueNotification(updatedIssue, 'updated')
+      // Send email notification to each assignee
+      ...assigneesToNotifyForUpdate.map(assignee => {
+        if (assignee?.email) {
+          return sendIssueNotification(updatedIssue, 'updated', assignee.email).catch((error) => {
+            if (process.env.NODE_ENV !== 'production') {
+              console.error('Failed to send update notification:', error);
+            }
+          });
+        }
+        return Promise.resolve();
+      })
     ]);
+
+    // Emit Socket.io event for real-time updates
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`project-${updatedIssue.projectId._id || updatedIssue.projectId}`).emit('issue:updated', updatedIssue);
+    }
 
     res.json(updatedIssue);
   } catch (error) {
@@ -467,7 +551,15 @@ export const deleteIssue = async (req, res) => {
       });
     }
 
+    const projectId = issue.projectId.toString();
     await Issue.findByIdAndDelete(req.params.id);
+
+    // Emit Socket.io event for real-time updates
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`project-${projectId}`).emit('issue:deleted', { issueId: req.params.id, projectId });
+    }
+
     res.json({ message: 'Issue removed' });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -518,6 +610,160 @@ export const updateIssueStatus = async (req, res) => {
       sendTeamsNotification(populatedIssue, 'updated'), // Status change is an update
       sendIssueNotification(populatedIssue, 'status updated')
     ]);
+
+    // Emit Socket.io event for real-time updates
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`project-${populatedIssue.projectId._id || populatedIssue.projectId}`).emit('issue:status_updated', populatedIssue);
+    }
+
+    res.json(populatedIssue);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Approve issue work
+// @route   POST /api/issues/:id/approve
+// @access  Private (Manager only)
+export const approveIssue = async (req, res) => {
+  try {
+    // Only managers and admins can approve
+    if (req.user.role !== ROLES.MANAGER && req.user.role !== ROLES.ADMIN) {
+      return res.status(403).json({ message: 'Only managers and admins can approve work' });
+    }
+
+    const issue = await Issue.findById(req.params.id);
+
+    if (!issue) {
+      return res.status(404).json({ message: 'Issue not found' });
+    }
+
+    if (issue.status !== 'done') {
+      return res.status(400).json({ message: 'Issue must be marked as done before approval' });
+    }
+
+    if (issue.approvalStatus === 'approved') {
+      return res.status(400).json({ message: 'Issue is already approved' });
+    }
+
+    const { comment } = req.body;
+
+    issue.approvalStatus = 'approved';
+    issue.approvedBy = req.user._id;
+    issue.approvedAt = new Date();
+    issue.approvalComment = comment || null;
+    // Clear rejection fields if any
+    issue.rejectedBy = null;
+    issue.rejectedAt = null;
+    issue.rejectionComment = null;
+
+    await issue.save();
+
+    // Create activity
+    await Activity.create({
+      issueId: issue._id,
+      userId: req.user._id,
+      action: 'approved',
+      field: 'approvalStatus',
+      oldValue: 'pending',
+      newValue: 'approved',
+    });
+
+    const populatedIssue = await Issue.findById(issue._id)
+      .populate('projectId', 'name key')
+      .populate('assignee', 'name email avatar')
+      .populate('assignees', 'name email avatar')
+      .populate('reporter', 'name email avatar')
+      .populate('proofAttachments', 'filename originalName mimeType size path uploadedBy createdAt')
+      .populate('approvedBy', 'name email avatar')
+      .populate('rejectedBy', 'name email avatar');
+
+    // Send notifications
+    await Promise.all([
+      sendTeamsNotification(populatedIssue, 'approved'),
+      sendIssueNotification(populatedIssue, 'approved')
+    ]);
+
+    // Emit Socket.io event for real-time updates
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`project-${populatedIssue.projectId._id || populatedIssue.projectId}`).emit('issue:approved', populatedIssue);
+    }
+
+    res.json(populatedIssue);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Reject issue work
+// @route   POST /api/issues/:id/reject
+// @access  Private (Manager only)
+export const rejectIssue = async (req, res) => {
+  try {
+    // Only managers and admins can reject
+    if (req.user.role !== ROLES.MANAGER && req.user.role !== ROLES.ADMIN) {
+      return res.status(403).json({ message: 'Only managers and admins can reject work' });
+    }
+
+    const issue = await Issue.findById(req.params.id);
+
+    if (!issue) {
+      return res.status(404).json({ message: 'Issue not found' });
+    }
+
+    if (issue.status !== 'done') {
+      return res.status(400).json({ message: 'Issue must be marked as done before rejection' });
+    }
+
+    const { comment } = req.body;
+
+    if (!comment || comment.trim().length === 0) {
+      return res.status(400).json({ message: 'Rejection comment is required' });
+    }
+
+    issue.approvalStatus = 'rejected';
+    issue.rejectedBy = req.user._id;
+    issue.rejectedAt = new Date();
+    issue.rejectionComment = comment;
+    // Clear approval fields if any
+    issue.approvedBy = null;
+    issue.approvedAt = null;
+    issue.approvalComment = null;
+
+    await issue.save();
+
+    // Create activity
+    await Activity.create({
+      issueId: issue._id,
+      userId: req.user._id,
+      action: 'rejected',
+      field: 'approvalStatus',
+      oldValue: issue.approvalStatus === 'approved' ? 'approved' : 'pending',
+      newValue: 'rejected',
+    });
+
+    const populatedIssue = await Issue.findById(issue._id)
+      .populate('projectId', 'name key')
+      .populate('assignee', 'name email avatar')
+      .populate('assignees', 'name email avatar')
+      .populate('reporter', 'name email avatar')
+      .populate('proofAttachments', 'filename originalName mimeType size path uploadedBy createdAt')
+      .populate('approvedBy', 'name email avatar')
+      .populate('rejectedBy', 'name email avatar');
+
+    // Send notifications
+    await Promise.all([
+      sendTeamsNotification(populatedIssue, 'rejected'),
+      sendIssueNotification(populatedIssue, 'rejected')
+    ]);
+
+    // Emit Socket.io event for real-time updates
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`project-${populatedIssue.projectId._id || populatedIssue.projectId}`).emit('issue:rejected', populatedIssue);
+    }
 
     res.json(populatedIssue);
   } catch (error) {

@@ -36,18 +36,12 @@ const WorkType = () => {
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-end mb-8">
           <div className="flex items-center">
             <div className="w-8 h-8 bg-primary-600 rounded flex items-center justify-center mr-2">
-              <span className="text-white font-bold">A</span>
+              <span className="text-white font-bold text-sm">P</span>
             </div>
-            <span className="text-sm font-medium text-gray-700">ATLASSIAN</span>
-          </div>
-          <div className="flex items-center">
-            <div className="w-8 h-8 bg-primary-600 rounded flex items-center justify-center mr-2">
-              <span className="text-white font-bold text-sm">J</span>
-            </div>
-            <span className="text-sm font-medium text-gray-700">Jira</span>
+            <span className="text-sm font-medium text-gray-700">Paarsiv</span>
           </div>
         </div>
 

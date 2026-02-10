@@ -29,7 +29,9 @@ export const refreshAccessToken = async (refreshToken, clientId, clientSecret, t
       expiresIn: response.data.expires_in,
     };
   } catch (error) {
-    console.error('Error refreshing token:', error.response?.data || error.message);
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('Error refreshing token:', error.response?.data || error.message);
+    }
     throw new Error('Failed to refresh access token');
   }
 };
@@ -102,7 +104,9 @@ export const sendOutlookEmail = async (accessToken, to, subject, body, isHtml = 
 
     return response.data;
   } catch (error) {
-    console.error('Error sending Outlook email:', error.response?.data || error.message);
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('Error sending Outlook email:', error.response?.data || error.message);
+    }
     throw new Error('Failed to send email via Outlook');
   }
 };
@@ -150,7 +154,9 @@ export const createOutlookEvent = async (accessToken, eventData) => {
 
     return response.data;
   } catch (error) {
-    console.error('Error creating Outlook event:', error.response?.data || error.message);
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('Error creating Outlook event:', error.response?.data || error.message);
+    }
     throw new Error('Failed to create calendar event');
   }
 };
@@ -178,7 +184,9 @@ export const sendTeamsMessage = async (accessToken, teamId, channelId, message) 
 
     return response.data;
   } catch (error) {
-    console.error('Error sending Teams message:', error.response?.data || error.message);
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('Error sending Teams message:', error.response?.data || error.message);
+    }
     throw new Error('Failed to send Teams message');
   }
 };
@@ -213,7 +221,9 @@ export const sendTeamsAdaptiveCard = async (accessToken, teamId, channelId, card
 
     return response.data;
   } catch (error) {
-    console.error('Error sending Teams adaptive card:', error.response?.data || error.message);
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('Error sending Teams adaptive card:', error.response?.data || error.message);
+    }
     throw new Error('Failed to send adaptive card');
   }
 };
@@ -234,7 +244,9 @@ export const getUserTeams = async (accessToken) => {
 
     return response.data.value;
   } catch (error) {
-    console.error('Error fetching Teams:', error.response?.data || error.message);
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('Error fetching Teams:', error.response?.data || error.message);
+    }
     throw new Error('Failed to fetch Teams');
   }
 };
@@ -261,13 +273,13 @@ export const getTeamChannels = async (accessToken, teamId) => {
       channel.membershipType === 'standard' || channel.membershipType === 'shared'
     );
 
-    console.log(`Found ${channels.length} total channels, ${accessibleChannels.length} accessible channels for team ${teamId}`);
-    
     return accessibleChannels.length > 0 ? accessibleChannels : channels; // Return all if filtering removed everything
   } catch (error) {
-    console.error('Error fetching channels:', error.response?.data || error.message);
-    console.error('Team ID:', teamId);
-    console.error('Error details:', JSON.stringify(error.response?.data, null, 2));
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('Error fetching channels:', error.response?.data || error.message);
+      console.error('Team ID:', teamId);
+      console.error('Error details:', JSON.stringify(error.response?.data, null, 2));
+    }
     
     // Provide more specific error messages
     if (error.response?.status === 403) {

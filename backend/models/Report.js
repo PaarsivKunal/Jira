@@ -24,6 +24,14 @@ const reportSchema = mongoose.Schema(
         'user_workload',
         'version_workload',
         'workload_pie_chart',
+        'burndown_chart',
+        'velocity_chart',
+        'cumulative_flow',
+        'gantt_chart',
+        'heatmap',
+        'scatter_plot',
+        'time_tracking_pie',
+        'sprint_progress',
       ],
       required: true,
     },
@@ -38,6 +46,21 @@ const reportSchema = mongoose.Schema(
         type: String,
         enum: ['day', 'week', 'month', 'quarter', 'year'],
         default: 'week',
+      },
+      sprintId: mongoose.Schema.Types.ObjectId, // For sprint-specific reports
+      projectIds: [mongoose.Schema.Types.ObjectId], // For multi-project reports
+      filters: {
+        status: [String],
+        type: [String],
+        priority: [String],
+        assignee: [mongoose.Schema.Types.ObjectId],
+        reporter: [mongoose.Schema.Types.ObjectId],
+        labels: [String],
+      },
+      filterLogic: {
+        type: String,
+        enum: ['AND', 'OR'],
+        default: 'AND',
       },
     },
     createdBy: {

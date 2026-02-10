@@ -6,13 +6,19 @@ export const errorHandler = (err, req, res, next) => {
   let message = err.message;
 
   // Log error for debugging
-  console.error('Error:', {
+  const errorLog = {
     message: err.message,
-    stack: err.stack,
     url: req.originalUrl,
     method: req.method,
     timestamp: new Date().toISOString(),
-  });
+    requestId: req.id || 'unknown',
+  };
+
+  // Only log stack in development
+  if (process.env.NODE_ENV !== 'production') {
+    errorLog.stack = err.stack;
+    console.error('Error:', errorLog);
+  }
 
   // Handle specific error types
   if (err.name === 'ValidationError') {
@@ -47,6 +53,7 @@ export const errorHandler = (err, req, res, next) => {
   res.status(statusCode).json({
     success: false,
     message: sanitizedMessage,
+    requestId: req.id || undefined,
     ...(process.env.NODE_ENV === 'development' && { 
       stack: err.stack,
       details: err.message !== sanitizedMessage ? err.message : undefined

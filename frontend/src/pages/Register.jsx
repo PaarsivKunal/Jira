@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext'; // Import useAuth
+import { useAuth } from '../context/AuthContext';
 import { Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
+import {
+  DEPARTMENTS,
+} from '../config/departments';
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -11,12 +14,14 @@ const Register = () => {
     password: '',
     confirmPassword: '',
     role: 'developer',
+    department: '',
   });
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const { register } = useAuth(); // Use context
+  const { register } = useAuth();
   const navigate = useNavigate();
+
 
   useEffect(() => {
     const signupEmail = localStorage.getItem('signupEmail');
@@ -33,12 +38,21 @@ const Register = () => {
       return;
     }
 
+    // Validate department for developers and managers
+    if (formData.role === 'developer' || formData.role === 'manager') {
+      if (!formData.department) {
+        toast.error('Please select a department');
+        return;
+      }
+    }
+
     setIsLoading(true);
     const result = await register({
       name: formData.name,
       email: formData.email,
       password: formData.password,
       role: formData.role,
+      department: formData.department || null,
     });
 
     setIsLoading(false);
@@ -108,9 +122,15 @@ const Register = () => {
                 name="role"
                 className="input mt-1"
                 value={formData.role}
-                onChange={(e) =>
-                  setFormData({ ...formData, role: e.target.value })
-                }
+                onChange={(e) => {
+                  const newRole = e.target.value;
+                  setFormData({
+                    ...formData,
+                    role: newRole,
+                    // Clear department if not developer or manager
+                    department: (newRole === 'developer' || newRole === 'manager') ? formData.department : '',
+                  });
+                }}
               >
                 <option value="developer">Developer</option>
                 <option value="manager">Manager</option>
@@ -119,6 +139,30 @@ const Register = () => {
                 <option value="viewer">Viewer</option>
               </select>
             </div>
+
+            {/* Department Selection - For Developer and Manager roles */}
+            {(formData.role === 'developer' || formData.role === 'manager') && (
+              <>
+                <div>
+                  <label htmlFor="department" className="block text-sm font-medium text-gray-700">
+                    Department *
+                  </label>
+                  <select
+                    id="department"
+                    name="department"
+                    className="input mt-1"
+                    value={formData.department}
+                    onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                    required
+                  >
+                    <option value="">Select Department</option>
+                    <option value={DEPARTMENTS.SALESFORCE}>Salesforce</option>
+                    <option value={DEPARTMENTS.WEB_DEVELOPMENT}>Web Development</option>
+                    <option value={DEPARTMENTS.MOBILE_DEVELOPMENT}>Mobile Development</option>
+                  </select>
+                </div>
+              </>
+            )}
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
                 Password

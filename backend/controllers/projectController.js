@@ -19,8 +19,19 @@ export const getProjects = async (req, res) => {
 
     // Filter projects based on user role
     let query = {};
-    // Admin and Manager can see all projects (to see employees)
-    if (req.user.role !== 'admin' && req.user.role !== 'manager') {
+    
+    if (req.user.role === 'admin') {
+      // Admin can see all projects
+      query = {};
+    } else if (req.user.role === 'manager') {
+      // Manager sees only projects matching their department
+      if (req.user.department) {
+        query.department = req.user.department;
+      } else {
+        // Manager without department sees no projects
+        query._id = null; // This will return empty results
+      }
+    } else {
       // Non-admin/manager users only see projects they're part of
       query.$or = [
         { lead: req.user._id },
@@ -30,8 +41,8 @@ export const getProjects = async (req, res) => {
 
     const total = await Project.countDocuments(query);
     const projects = await Project.find(query)
-      .populate('lead', 'name email avatar')
-      .populate('members', 'name email avatar')
+      .populate('lead', 'name email avatar department')
+      .populate('members', 'name email avatar department')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
@@ -73,7 +84,7 @@ export const getProject = async (req, res) => {
 // @access  Private
 export const createProject = async (req, res) => {
   try {
-    const { name, key, description, members } = req.body;
+    const { name, key, description, members, department, technologies, clouds } = req.body;
 
     const projectExists = await Project.findOne({ key });
 
@@ -81,17 +92,30 @@ export const createProject = async (req, res) => {
       return res.status(400).json({ message: 'Project key already exists' });
     }
 
-    const project = await Project.create({
+    const projectData = {
       name,
       key,
       description,
       lead: req.user._id,
       members: members || [],
-    });
+    };
+
+    // Add department and related fields
+    if (department) {
+      projectData.department = department;
+      
+      if (department === 'salesforce' && clouds && Array.isArray(clouds)) {
+        projectData.clouds = clouds;
+      } else if ((department === 'web_development' || department === 'mobile_development') && technologies && Array.isArray(technologies)) {
+        projectData.technologies = technologies;
+      }
+    }
+
+    const project = await Project.create(projectData);
 
     const populatedProject = await Project.findById(project._id)
-      .populate('lead', 'name email avatar')
-      .populate('members', 'name email avatar');
+      .populate('lead', 'name email avatar department')
+      .populate('members', 'name email avatar department');
 
     // Clear cache so new project appears
     clearCache(`projects_${req.user._id}`);
@@ -113,13 +137,30 @@ export const updateProject = async (req, res) => {
       return res.status(404).json({ message: 'Project not found' });
     }
 
+    const updateData = { ...req.body };
+
+    // Handle department and related fields
+    if (updateData.department) {
+      if (updateData.department === 'salesforce' && updateData.clouds) {
+        updateData.clouds = Array.isArray(updateData.clouds) ? updateData.clouds : [];
+        updateData.technologies = []; // Clear technologies for Salesforce
+      } else if (
+        (updateData.department === 'web_development' ||
+          updateData.department === 'mobile_development') &&
+        updateData.technologies
+      ) {
+        updateData.technologies = Array.isArray(updateData.technologies) ? updateData.technologies : [];
+        updateData.clouds = []; // Clear clouds for web/mobile
+      }
+    }
+
     const updatedProject = await Project.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      updateData,
       { new: true, runValidators: true }
     )
-      .populate('lead', 'name email avatar')
-      .populate('members', 'name email avatar')
+      .populate('lead', 'name email avatar department')
+      .populate('members', 'name email avatar department')
       .lean();
 
     // Clear cache
