@@ -57,8 +57,8 @@ const CreateOrganizationModal = ({ onClose, onSubmit, isLoading, userEmail }) =>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <p className="text-blue-800 text-sm">
+          <div className="bg-primary-50 border border-primary-200 rounded-lg p-3">
+            <p className="text-primary-800 text-sm">
               <strong>Note:</strong> Creating an organization will assign your account to it. 
               You'll need to refresh the page after creation.
             </p>

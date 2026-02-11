@@ -50,7 +50,7 @@ const Dashboard = () => {
     {
       label: 'Total Issues',
       value: issues.length || 0,
-      color: 'bg-blue-500',
+      color: 'bg-primary-500',
     },
     {
       label: 'In Progress',
@@ -151,7 +151,7 @@ const Dashboard = () => {
                   className={`text-xs px-2 py-1 rounded-full ${issue.status === 'done'
                       ? 'bg-green-100 text-green-800'
                       : issue.status === 'in_progress'
-                        ? 'bg-blue-100 text-blue-800'
+                        ? 'bg-primary-100 text-primary-800'
                         : 'bg-gray-100 text-gray-800'
                     }`}
                 >

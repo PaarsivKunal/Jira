@@ -3,12 +3,10 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
 import { resetPassword } from '../services/api';
 import toast from 'react-hot-toast';
-import { useAuth } from '../context/AuthContext';
 
 const ResetPassword = () => {
   const { token } = useParams();
   const navigate = useNavigate();
-  const { login } = useAuth();
   const [formData, setFormData] = useState({
     password: '',
     confirmPassword: '',
@@ -25,18 +23,22 @@ const ResetPassword = () => {
       return;
     }
 
-    if (formData.password.length < 6) {
-      toast.error('Password must be at least 6 characters');
+    if (formData.password.length < 8) {
+      toast.error('Password must be at least 8 characters');
       return;
     }
 
     setIsLoading(true);
     try {
       const response = await resetPassword(token, formData.password);
-      toast.success('Password reset successful!');
-      // Auto-login the user
-      await login(response.data.email, formData.password);
-      navigate('/dashboard');
+      toast.success('Password reset successful! Please login with your new password.');
+      // Redirect to login instead of auto-login
+      navigate('/login', { 
+        state: { 
+          message: 'Password reset successful. Please login with your new password.',
+          email: response.data.email 
+        } 
+      });
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to reset password');
     } finally {
@@ -49,10 +51,10 @@ const ResetPassword = () => {
       <div className="max-w-md w-full space-y-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Reset Your Password
+            Set Your Password
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Enter your new password below
+            Enter your new password below. After setting your password, you'll be redirected to login.
           </p>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
@@ -123,7 +125,7 @@ const ResetPassword = () => {
               disabled={isLoading}
               className="btn btn-primary w-full"
             >
-              {isLoading ? 'Resetting...' : 'Reset Password'}
+              {isLoading ? 'Setting Password...' : 'Set Password'}
             </button>
           </div>
 

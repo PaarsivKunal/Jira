@@ -9,7 +9,7 @@ const KanbanBoard = ({ issues, onUpdate, onCreateIssue }) => {
   const [isUpdating, setIsUpdating] = useState(false);
 
   const columns = [
-    { id: 'todo', title: 'TO DO', color: 'bg-blue-100' },
+    { id: 'todo', title: 'TO DO', color: 'bg-primary-100' },
     { id: 'in_progress', title: 'IN PROGRESS', color: 'bg-yellow-100' },
     { id: 'in_review', title: 'IN REVIEW', color: 'bg-purple-100' },
     { id: 'done', title: 'DONE', color: 'bg-green-100' },

@@ -1,13 +1,25 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Eye, EyeOff } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 const Login = () => {
+  const location = useLocation();
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    // If redirected from reset password, populate email and show message
+    if (location.state?.email) {
+      setFormData(prev => ({ ...prev, email: location.state.email }));
+      if (location.state?.message) {
+        toast.success(location.state.message);
+      }
+    }
+  }, [location]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

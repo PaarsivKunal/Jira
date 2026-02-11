@@ -18,7 +18,7 @@ const AppsDropdown = () => {
 
   const yourApps = [
     { name: 'Atlassian Home', icon: 'A', color: 'bg-blue-600' },
-    { name: 'Paarsiv', icon: 'P', color: 'bg-blue-600' },
+    { name: 'Paarsiv', icon: 'P', color: 'bg-primary-600' },
     { name: 'Administrations', icon: '⚙', color: 'bg-gray-600' },
   ];
 

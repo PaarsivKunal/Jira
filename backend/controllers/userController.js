@@ -124,6 +124,7 @@ export const createUser = async (req, res) => {
 
     res.status(201).json({
       ...createdUser.toObject(),
+      resetToken, // Return reset token so admin can share it or user can use email link
       message: 'User created successfully. Welcome email sent.',
     });
   } catch (error) {

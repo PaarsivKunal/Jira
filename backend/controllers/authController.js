@@ -120,8 +120,8 @@ export const register = async (req, res) => {
         name: organization.name,
         slug: organization.slug,
       },
-      token,
-      message: 'Registration successful. Please check your email to set your password.',
+      resetToken, // Return reset token so frontend can redirect to reset password page
+      message: 'Registration successful. Please set your password.',
     });
   } catch (error) {
     sendErrorResponse(res, 500, 'Failed to register user', req.id, process.env.NODE_ENV === 'development' ? { error: error.message } : null);
@@ -245,8 +245,7 @@ export const resetPassword = async (req, res) => {
     user.resetPasswordExpire = undefined;
     await user.save();
 
-    const authToken = generateToken(user._id);
-
+    // Don't return token - user needs to login manually after password reset
     res.json({
       _id: user._id,
       name: user.name,
@@ -254,8 +253,7 @@ export const resetPassword = async (req, res) => {
       role: user.role,
       avatar: user.avatar,
       department: user.department,
-      token: authToken,
-      message: 'Password reset successful',
+      message: 'Password reset successful. Please login with your new password.',
     });
   } catch (error) {
     sendErrorResponse(res, 500, 'Failed to reset password', req.id, process.env.NODE_ENV === 'development' ? { error: error.message } : null);

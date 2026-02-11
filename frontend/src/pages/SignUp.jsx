@@ -118,8 +118,8 @@ const SignUp = () => {
             </p>
             
             {existingOrg && (
-              <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-sm text-blue-800 flex items-center">
+              <div className="mt-3 p-3 bg-primary-50 border border-primary-200 rounded-lg">
+                <p className="text-sm text-primary-800 flex items-center">
                   <Building2 className="w-4 h-4 inline mr-1" />
                   Organization "{existingOrg.name}" exists for this domain. 
                   You'll be able to join it during registration.

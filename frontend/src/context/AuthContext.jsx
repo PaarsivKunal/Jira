@@ -69,12 +69,12 @@ export const AuthProvider = ({ children }) => {
   const register = async (userData) => {
     try {
       const response = await registerApi(userData);
-      const { token, ...userInfo } = response.data;
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(userInfo));
-      setUser(userInfo);
-      toast.success('Account created successfully');
-      return { success: true };
+      // Don't auto-login - user needs to set password first
+      // Return full response including resetToken for redirect
+      return { 
+        success: true, 
+        data: response.data 
+      };
     } catch (error) {
       toast.error(error.response?.data?.message || 'Registration failed');
       return { success: false, error: error.response?.data?.message };

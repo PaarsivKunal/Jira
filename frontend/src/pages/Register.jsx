@@ -97,7 +97,15 @@ const Register = () => {
       localStorage.removeItem('suggestedOrgName');
       localStorage.removeItem('suggestedDomain');
       localStorage.removeItem('existingOrg');
-      navigate('/dashboard');
+      
+      // Redirect to reset password page with token
+      if (result.data?.resetToken) {
+        navigate(`/reset-password/${result.data.resetToken}`);
+      } else {
+        // Fallback: show message to check email
+        toast.success('Registration successful! Please check your email to set your password.');
+        navigate('/login');
+      }
     }
   };
 

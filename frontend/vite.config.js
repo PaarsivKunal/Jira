@@ -13,7 +13,7 @@ export default defineConfig({
         name: 'Paarsiv - Project Management',
         short_name: 'Paarsiv',
         description: 'Jira-like project management system',
-        theme_color: '#3b82f6',
+        theme_color: '#0d9488',
         background_color: '#ffffff',
         display: 'standalone',
         orientation: 'portrait',

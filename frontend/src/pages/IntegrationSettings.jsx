@@ -214,7 +214,7 @@ const IntegrationSettings = () => {
       <div className="bg-white rounded-lg shadow p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center space-x-3">
-            <Mail className="w-6 h-6 text-blue-600" />
+            <Mail className="w-6 h-6 text-primary-600" />
             <h2 className="text-xl font-semibold">Microsoft Outlook</h2>
           </div>
           {status?.outlook?.isConnected ? (
@@ -245,7 +245,7 @@ const IntegrationSettings = () => {
         ) : (
           <button
             onClick={connectOutlook}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
           >
             Connect Outlook
           </button>
@@ -365,7 +365,7 @@ const IntegrationSettings = () => {
               type="checkbox"
               checked={settings.sendEmailNotifications}
               onChange={(e) => handleSettingsChange('sendEmailNotifications', e.target.checked)}
-              className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+              className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500"
             />
           </div>
 
@@ -378,7 +378,7 @@ const IntegrationSettings = () => {
               type="checkbox"
               checked={settings.sendTeamsNotifications}
               onChange={(e) => handleSettingsChange('sendTeamsNotifications', e.target.checked)}
-              className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+              className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500"
             />
           </div>
 
@@ -392,7 +392,7 @@ const IntegrationSettings = () => {
                   type="checkbox"
                   checked={settings.notifyOnIssueCreate}
                   onChange={(e) => handleSettingsChange('notifyOnIssueCreate', e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                  className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500"
                 />
               </div>
 
@@ -402,7 +402,7 @@ const IntegrationSettings = () => {
                   type="checkbox"
                   checked={settings.notifyOnIssueUpdate}
                   onChange={(e) => handleSettingsChange('notifyOnIssueUpdate', e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                  className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500"
                 />
               </div>
 
@@ -412,7 +412,7 @@ const IntegrationSettings = () => {
                   type="checkbox"
                   checked={settings.notifyOnComment}
                   onChange={(e) => handleSettingsChange('notifyOnComment', e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                  className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500"
                 />
               </div>
 
@@ -422,7 +422,7 @@ const IntegrationSettings = () => {
                   type="checkbox"
                   checked={settings.notifyOnStatusChange}
                   onChange={(e) => handleSettingsChange('notifyOnStatusChange', e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                  className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500"
                 />
               </div>
 
@@ -432,7 +432,7 @@ const IntegrationSettings = () => {
                   type="checkbox"
                   checked={settings.notifyOnAssignment}
                   onChange={(e) => handleSettingsChange('notifyOnAssignment', e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                  className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500"
                 />
               </div>
             </div>

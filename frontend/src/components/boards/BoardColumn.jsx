@@ -15,7 +15,7 @@ const BoardColumn = ({ columnId, title, issues, color, onCreateIssue }) => {
           <div
             ref={provided.innerRef}
             {...provided.droppableProps}
-            className={`min-h-[400px] p-3 space-y-2 rounded-b-lg transition-colors ${snapshot.isDraggingOver ? 'bg-blue-50 ring-2 ring-blue-200' : ''
+            className={`min-h-[400px] p-3 space-y-2 rounded-b-lg transition-colors ${snapshot.isDraggingOver ? 'bg-primary-50 ring-2 ring-primary-200' : ''
               }`}
           >
             {issues.map((issue, index) => (

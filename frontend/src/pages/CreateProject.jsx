@@ -402,7 +402,7 @@ const CreateProject = () => {
                     key={num}
                     className="flex items-center space-x-3 p-2 bg-gray-50 rounded"
                   >
-                    <div className="w-2 h-2 rounded-full bg-blue-500" />
+                    <div className="w-2 h-2 rounded-full bg-primary-500" />
                     <span className="text-sm text-gray-700">KEY-{num}</span>
                     <div className="flex-1 h-1 bg-gray-200 rounded" />
                   </div>
