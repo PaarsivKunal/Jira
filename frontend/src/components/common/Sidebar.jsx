@@ -1,15 +1,19 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getProjects } from '../../services/api';
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Users } from 'lucide-react';
 import { useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
 
 const Sidebar = ({ isCollapsed, onToggle }) => {
   const location = useLocation();
+  const { user } = useAuth();
   const { data: projectsResponse } = useQuery({
     queryKey: ['projects'],
     queryFn: () => getProjects().then((res) => res.data),
   });
+  
+  const isAdmin = user?.role === 'admin';
 
   // Extract projects array from paginated response
   const projects = Array.isArray(projectsResponse?.data) 
@@ -102,6 +106,25 @@ const Sidebar = ({ isCollapsed, onToggle }) => {
             </button>
           )}
         </div>
+        
+        {isAdmin && (
+          <div className="mt-6">
+            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+              ADMIN
+            </div>
+            <Link
+              to="/admin/users"
+              className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
+                location.pathname === '/admin/users'
+                  ? 'bg-primary-50 text-primary-700 font-medium'
+                  : 'text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              <Users size={16} className="flex-shrink-0" />
+              <span className="text-sm">User Management</span>
+            </Link>
+          </div>
+        )}
       </div>
       <div className="p-4 border-t border-gray-200 bg-white">
         <p className="text-xs text-gray-600 mb-1">You're in a team-managed project</p>

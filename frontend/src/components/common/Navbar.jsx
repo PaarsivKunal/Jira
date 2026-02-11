@@ -45,9 +45,9 @@ const Navbar = () => {
               <AppsDropdown />
               <Link to="/dashboard" className="flex items-center space-x-2">
                 <div className="w-8 h-8 bg-primary-600 rounded flex items-center justify-center">
-                  <span className="text-white font-bold">J</span>
+                  <span className="text-white font-bold">P</span>
                 </div>
-                <span className="text-lg font-semibold text-gray-900">Jira</span>
+                <span className="text-lg font-semibold text-gray-900">Paarsiv</span>
               </Link>
             </div>
             <div className="hidden lg:flex items-center space-x-1">

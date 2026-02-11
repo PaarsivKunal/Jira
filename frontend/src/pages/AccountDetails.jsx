@@ -39,9 +39,9 @@ const AccountDetails = () => {
         <div className="text-center">
           <div className="flex items-center justify-center mb-6">
             <div className="w-10 h-10 bg-primary-600 rounded flex items-center justify-center mr-2">
-              <span className="text-white font-bold text-xl">J</span>
+              <span className="text-white font-bold text-xl">P</span>
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">Jira</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Paarsiv</h1>
           </div>
           <div className="flex items-center justify-center mb-4">
             <CheckCircle2 className="w-5 h-5 text-gray-500 mr-2" />
@@ -137,13 +137,6 @@ const AccountDetails = () => {
             apply.
           </p>
         </form>
-
-        <div className="text-center mt-8">
-          <div className="flex items-center justify-center text-primary-600">
-            <span className="text-xs">▲</span>
-            <span className="ml-1 text-xs font-medium">ATLASSIAN</span>
-          </div>
-        </div>
       </div>
     </div>
   );

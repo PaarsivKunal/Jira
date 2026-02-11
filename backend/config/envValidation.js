@@ -19,10 +19,15 @@ const validateEnv = () => {
     process.exit(1);
   }
 
-  // Validate JWT_SECRET strength
+  // Validate JWT_SECRET strength - enforce in all environments
   if (process.env.JWT_SECRET && process.env.JWT_SECRET.length < 32) {
-    console.warn('⚠️  Warning: JWT_SECRET should be at least 32 characters long for security.');
-    console.warn('   Generate a secure secret: openssl rand -base64 32');
+    console.error('❌ CRITICAL: JWT_SECRET must be at least 32 characters long.');
+    console.error('   Generate a secure secret: openssl rand -base64 32');
+    if (process.env.NODE_ENV === 'production') {
+      process.exit(1);
+    } else {
+      console.warn('   Application will continue, but this should be fixed before production deployment.');
+    }
   }
 
   // Validate NODE_ENV

@@ -23,15 +23,67 @@ api.interceptors.request.use(
   }
 );
 
-// Handle token expiration
+// Queue request for offline sync
+const queueRequest = (config) => {
+  if ('serviceWorker' in navigator && 'sync' in window.ServiceWorkerRegistration.prototype) {
+    // Queue for background sync when online
+    return new Promise((resolve, reject) => {
+      try {
+        const requestData = {
+          url: config.url,
+          method: config.method,
+          data: config.data,
+          headers: config.headers,
+          timestamp: Date.now()
+        };
+        
+        // Store in localStorage as fallback (IndexedDB would be better but requires setup)
+        const queuedRequests = JSON.parse(localStorage.getItem('offline-requests') || '[]');
+        queuedRequests.push(requestData);
+        localStorage.setItem('offline-requests', JSON.stringify(queuedRequests));
+        
+        // Register background sync if available
+        if (navigator.serviceWorker.ready) {
+          navigator.serviceWorker.ready.then((registration) => {
+            if ('sync' in registration) {
+              registration.sync.register('sync-requests').catch(() => {
+                // Background sync not supported, will retry when online
+              });
+            }
+          });
+        }
+        
+        resolve({ 
+          data: { 
+            message: 'Request queued for sync when online',
+            queued: true 
+          } 
+        });
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
+  
+  return Promise.reject(new Error('Offline and background sync not available'));
+};
+
+// Handle token expiration and offline requests
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';
     }
+    
+    // Handle offline requests
+    if (!navigator.onLine && error.config && error.config.method !== 'get') {
+      // Queue POST/PUT/DELETE requests for when online
+      return queueRequest(error.config);
+    }
+    
     return Promise.reject(error);
   }
 );
@@ -40,6 +92,8 @@ api.interceptors.response.use(
 export const register = (userData) => api.post('/auth/register', userData);
 export const login = (credentials) => api.post('/auth/login', credentials);
 export const getMe = () => api.get('/auth/me');
+export const forgotPassword = (email) => api.post('/auth/forgot-password', { email });
+export const resetPassword = (token, password) => api.put(`/auth/reset-password/${token}`, { password });
 
 // Microsoft Integration
 export const getMicrosoftAuthUrl = (integrationType) => 
@@ -67,6 +121,10 @@ export const updateIssue = (id, data) => api.put(`/issues/${id}`, data);
 export const deleteIssue = (id) => api.delete(`/issues/${id}`);
 export const updateIssueStatus = (id, status) =>
   api.patch(`/issues/${id}/status`, { status });
+export const approveIssue = (id, comment) =>
+  api.post(`/issues/${id}/approve`, { comment });
+export const rejectIssue = (id, comment) =>
+  api.post(`/issues/${id}/reject`, { comment });
 
 // Comments
 export const getComments = (issueId) =>
@@ -100,9 +158,9 @@ export const deleteWorkLog = (workLogId) => api.delete(`/worklogs/${workLogId}`)
 // Activities
 export const getActivities = (issueId) => api.get(`/issues/${issueId}/activities`);
 
-// Users
-export const getUsers = () => api.get('/users');
-export const getUser = (id) => api.get(`/users/${id}`);
+// Users (old - keeping for backward compatibility, but use the ones below)
+// export const getUsers = () => api.get('/users');
+// export const getUser = (id) => api.get(`/users/${id}`);
 
 // Forms
 export const getForms = (projectId) => api.get(`/projects/${projectId}/forms`);
@@ -145,6 +203,11 @@ export const createReport = (projectId, data) => api.post(`/reports/projects/${p
 export const updateReport = (id, data) => api.put(`/reports/${id}`, data);
 export const deleteReport = (id) => api.delete(`/reports/${id}`);
 export const getReportData = (id) => api.get(`/reports/${id}/data`);
+export const exportReport = (id, format = 'csv') => 
+  api.get(`/reports/${id}/export`, { 
+    params: { format },
+    responseType: format === 'excel' ? 'blob' : format === 'json' ? 'json' : 'text',
+  });
 
 // Shortcuts
 export const getShortcuts = () => api.get('/shortcuts');
@@ -158,6 +221,30 @@ export const getSprints = (projectId, status) => api.get('/sprints', { params: {
 export const createSprint = (data) => api.post('/sprints', data);
 export const updateSprint = (id, data) => api.put(`/sprints/${id}`, data);
 export const deleteSprint = (id) => api.delete(`/sprints/${id}`);
+
+// Filters
+export const getFilters = (projectId) => api.get('/filters', { params: { projectId } });
+export const getFilter = (id) => api.get(`/filters/${id}`);
+export const createFilter = (data) => api.post('/filters', data);
+export const updateFilter = (id, data) => api.put(`/filters/${id}`, data);
+export const deleteFilter = (id) => api.delete(`/filters/${id}`);
+
+// Dashboard
+export const getWidgets = () => api.get('/dashboard/widgets');
+export const getWidgetData = (id) => api.get(`/dashboard/widgets/${id}/data`);
+export const createWidget = (data) => api.post('/dashboard/widgets', data);
+export const updateWidget = (id, data) => api.put(`/dashboard/widgets/${id}`, data);
+export const deleteWidget = (id) => api.delete(`/dashboard/widgets/${id}`);
+
+// Organizations
+export const checkDomain = (domain) => api.get('/organizations/check-domain', { params: { domain } });
+export const getMyOrganization = () => api.get('/organizations/me');
+export const createOrganization = (data) => api.post('/organizations', data);
+
+// Users
+export const getUsers = (params) => api.get('/users', { params });
+export const getUser = (id) => api.get(`/users/${id}`);
+export const createUser = (data) => api.post('/users', data);
 
 export default api;
 

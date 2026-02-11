@@ -2,6 +2,7 @@ import Comment from '../models/Comment.js';
 import Issue from '../models/Issue.js';
 import Activity from '../models/Activity.js';
 import { sendCommentNotification } from '../utils/emailService.js';
+import { sendErrorResponse } from '../utils/errorResponse.js';
 
 // @desc    Get comments for an issue
 // @route   GET /api/issues/:issueId/comments
@@ -14,7 +15,7 @@ export const getComments = async (req, res) => {
 
     res.json(comments);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendErrorResponse(res, 500, 'Failed to fetch comments', req.id, process.env.NODE_ENV === 'development' ? { error: error.message } : null);
   }
 };
 
@@ -56,9 +57,16 @@ export const createComment = async (req, res) => {
       console.error('Failed to send comment notification:', error);
     });
 
+    // Emit Socket.io event for real-time updates
+    const io = req.app.get('io');
+    if (io) {
+      const projectId = issue.projectId._id || issue.projectId;
+      io.to(`project-${projectId}`).emit('comment:created', populatedComment);
+    }
+
     res.status(201).json(populatedComment);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendErrorResponse(res, 500, 'Failed to create comment', req.id, process.env.NODE_ENV === 'development' ? { error: error.message } : null);
   }
 };
 
@@ -84,9 +92,19 @@ export const updateComment = async (req, res) => {
       { new: true, runValidators: true }
     ).populate('userId', 'name email avatar');
 
+    // Emit Socket.io event for real-time updates
+    const io = req.app.get('io');
+    if (io) {
+      const issue = await Issue.findById(comment.issueId);
+      if (issue) {
+        const projectId = issue.projectId._id || issue.projectId;
+        io.to(`project-${projectId}`).emit('comment:updated', updatedComment);
+      }
+    }
+
     res.json(updatedComment);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendErrorResponse(res, 500, 'Failed to update comment', req.id, process.env.NODE_ENV === 'development' ? { error: error.message } : null);
   }
 };
 
@@ -109,10 +127,21 @@ export const deleteComment = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized to delete this comment' });
     }
 
+    // Get issue before deleting to emit event
+    const issue = await Issue.findById(comment.issueId);
+    
     await Comment.findByIdAndDelete(req.params.id);
+
+    // Emit Socket.io event for real-time updates
+    const io = req.app.get('io');
+    if (io && issue) {
+      const projectId = issue.projectId._id || issue.projectId;
+      io.to(`project-${projectId}`).emit('comment:deleted', { commentId: req.params.id, issueId: comment.issueId });
+    }
+
     res.json({ message: 'Comment removed' });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendErrorResponse(res, 500, 'Failed to delete comment', req.id, process.env.NODE_ENV === 'development' ? { error: error.message } : null);
   }
 };
 

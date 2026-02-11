@@ -1,12 +1,20 @@
 import Project from '../models/Project.js';
+import User from '../models/User.js';
 import { getPaginationParams, createPaginationResponse } from '../utils/pagination.js';
 import { getCache, setCache, clearCache } from '../utils/cache.js';
+import { sendErrorResponse } from '../utils/errorResponse.js';
 
 // @desc    Get all projects
 // @route   GET /api/projects
 // @access  Private
 export const getProjects = async (req, res) => {
   try {
+    // Get user's organization
+    const user = await User.findById(req.user._id);
+    if (!user.organization) {
+      return res.status(400).json({ message: 'User must belong to an organization' });
+    }
+
     const { page, limit, skip } = getPaginationParams(req);
 
     // Create a unique cache key based on user and pagination
@@ -17,11 +25,23 @@ export const getProjects = async (req, res) => {
       return res.json(cachedData);
     }
 
-    // Filter projects based on user role
-    let query = {};
-    // Admin and Manager can see all projects (to see employees)
-    if (req.user.role !== 'admin' && req.user.role !== 'manager') {
-      // Non-admin/manager users only see projects they're part of
+    // Filter projects by organization first
+    let query = { organization: user.organization };
+    
+    // Then filter based on user role within organization
+    if (req.user.role === 'admin') {
+      // Admin can see all projects in their organization
+      // query already filtered by organization
+    } else if (req.user.role === 'manager') {
+      // Manager sees only projects matching their department within organization
+      if (req.user.department) {
+        query.department = req.user.department;
+      } else {
+        // Manager without department sees no projects
+        query._id = null; // This will return empty results
+      }
+    } else {
+      // Non-admin/manager users only see projects they're part of within organization
       query.$or = [
         { lead: req.user._id },
         { members: req.user._id },
@@ -30,8 +50,8 @@ export const getProjects = async (req, res) => {
 
     const total = await Project.countDocuments(query);
     const projects = await Project.find(query)
-      .populate('lead', 'name email avatar')
-      .populate('members', 'name email avatar')
+      .populate('lead', 'name email avatar department')
+      .populate('members', 'name email avatar department')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
@@ -44,7 +64,7 @@ export const getProjects = async (req, res) => {
 
     res.json(response);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendErrorResponse(res, 500, 'Failed to fetch projects', req.id, process.env.NODE_ENV === 'development' ? { error: error.message } : null);
   }
 };
 
@@ -53,7 +73,16 @@ export const getProjects = async (req, res) => {
 // @access  Private
 export const getProject = async (req, res) => {
   try {
-    const project = await Project.findById(req.params.id)
+    // Get user's organization
+    const user = await User.findById(req.user._id);
+    if (!user.organization) {
+      return res.status(400).json({ message: 'User must belong to an organization' });
+    }
+
+    const project = await Project.findOne({
+      _id: req.params.id,
+      organization: user.organization,
+    })
       .populate('lead', 'name email avatar')
       .populate('members', 'name email avatar')
       .lean(); // Optimization
@@ -64,7 +93,7 @@ export const getProject = async (req, res) => {
 
     res.json(project);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendErrorResponse(res, 500, 'Failed to fetch project', req.id, process.env.NODE_ENV === 'development' ? { error: error.message } : null);
   }
 };
 
@@ -73,32 +102,58 @@ export const getProject = async (req, res) => {
 // @access  Private
 export const createProject = async (req, res) => {
   try {
-    const { name, key, description, members } = req.body;
-
-    const projectExists = await Project.findOne({ key });
-
-    if (projectExists) {
-      return res.status(400).json({ message: 'Project key already exists' });
+    // Get user's organization
+    const user = await User.findById(req.user._id);
+    if (!user.organization) {
+      return res.status(400).json({ message: 'User must belong to an organization' });
     }
 
-    const project = await Project.create({
+    const { name, key, description, members, department, technologies, clouds } = req.body;
+
+    // Check if project key exists in same organization
+    const projectExists = await Project.findOne({ 
+      key, 
+      organization: user.organization 
+    });
+
+    if (projectExists) {
+      return res.status(400).json({ message: 'Project key already exists in your organization' });
+    }
+
+    const projectData = {
       name,
       key,
       description,
       lead: req.user._id,
+      organization: user.organization,
       members: members || [],
-    });
+    };
+
+    // Add department and related fields
+    if (department) {
+      projectData.department = department;
+      
+      if (department === 'salesforce' && clouds && Array.isArray(clouds)) {
+        projectData.clouds = clouds;
+      } else if ((department === 'web_development' || department === 'mobile_development') && technologies && Array.isArray(technologies)) {
+        projectData.technologies = technologies;
+      }
+    }
+
+    const project = await Project.create(projectData);
 
     const populatedProject = await Project.findById(project._id)
-      .populate('lead', 'name email avatar')
-      .populate('members', 'name email avatar');
+      .populate('lead', 'name email avatar department')
+      .populate('members', 'name email avatar department');
 
-    // Clear cache so new project appears
-    clearCache(`projects_${req.user._id}`);
+    // Clear cache for all users who might see this project
+    // Clear pattern-based cache for better invalidation
+    clearCache(`projects_`);
 
     res.status(201).json(populatedProject);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    const { sendErrorResponse } = await import('../utils/errorResponse.js');
+    sendErrorResponse(res, 500, 'Failed to create project', req.id, process.env.NODE_ENV === 'development' ? { error: error.message } : null);
   }
 };
 
@@ -107,27 +162,54 @@ export const createProject = async (req, res) => {
 // @access  Private
 export const updateProject = async (req, res) => {
   try {
-    const project = await Project.findById(req.params.id);
+    // Get user's organization
+    const user = await User.findById(req.user._id);
+    if (!user.organization) {
+      return res.status(400).json({ message: 'User must belong to an organization' });
+    }
+
+    const project = await Project.findOne({
+      _id: req.params.id,
+      organization: user.organization,
+    });
 
     if (!project) {
       return res.status(404).json({ message: 'Project not found' });
     }
 
+    const updateData = { ...req.body };
+
+    // Handle department and related fields
+    if (updateData.department) {
+      if (updateData.department === 'salesforce' && updateData.clouds) {
+        updateData.clouds = Array.isArray(updateData.clouds) ? updateData.clouds : [];
+        updateData.technologies = []; // Clear technologies for Salesforce
+      } else if (
+        (updateData.department === 'web_development' ||
+          updateData.department === 'mobile_development') &&
+        updateData.technologies
+      ) {
+        updateData.technologies = Array.isArray(updateData.technologies) ? updateData.technologies : [];
+        updateData.clouds = []; // Clear clouds for web/mobile
+      }
+    }
+
     const updatedProject = await Project.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      updateData,
       { new: true, runValidators: true }
     )
-      .populate('lead', 'name email avatar')
-      .populate('members', 'name email avatar')
+      .populate('lead', 'name email avatar department')
+      .populate('members', 'name email avatar department')
       .lean();
 
-    // Clear cache
-    clearCache(`projects_${req.user._id}`); // Ideally should clear for all affected users
+    // Clear cache for all affected users (pattern-based)
+    clearCache(`projects_`);
 
     res.json(updatedProject);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    const { sendErrorResponse } = await import('../utils/errorResponse.js');
+    sendErrorResponse(res, 500, 'Failed to update project', req.id, process.env.NODE_ENV === 'development' ? { error: error.message } : null);
   }
 };
 
@@ -136,7 +218,16 @@ export const updateProject = async (req, res) => {
 // @access  Private
 export const deleteProject = async (req, res) => {
   try {
-    const project = await Project.findById(req.params.id);
+    // Get user's organization
+    const user = await User.findById(req.user._id);
+    if (!user.organization) {
+      return res.status(400).json({ message: 'User must belong to an organization' });
+    }
+
+    const project = await Project.findOne({
+      _id: req.params.id,
+      organization: user.organization,
+    });
 
     if (!project) {
       return res.status(404).json({ message: 'Project not found' });
@@ -144,11 +235,12 @@ export const deleteProject = async (req, res) => {
 
     await Project.findByIdAndDelete(req.params.id);
 
-    // Clear cache
-    clearCache(`projects_${req.user._id}`);
+    // Clear cache for all users (pattern-based)
+    clearCache(`projects_`);
 
     res.json({ message: 'Project removed' });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    const { sendErrorResponse } = await import('../utils/errorResponse.js');
+    sendErrorResponse(res, 500, 'Failed to delete project', req.id, process.env.NODE_ENV === 'development' ? { error: error.message } : null);
   }
 };

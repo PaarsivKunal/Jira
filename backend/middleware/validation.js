@@ -32,14 +32,29 @@ export const validateRegister = [
   body('password')
     .notEmpty()
     .withMessage('Password is required')
-    .isLength({ min: 6 })
-    .withMessage('Password must be at least 6 characters long')
+    .isLength({ min: 8 })
+    .withMessage('Password must be at least 8 characters long')
     .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
     .withMessage('Password must contain at least one uppercase letter, one lowercase letter, and one number'),
+  body('organizationName')
+    .trim()
+    .notEmpty()
+    .withMessage('Organization name is required')
+    .isLength({ min: 2, max: 100 })
+    .withMessage('Organization name must be between 2 and 100 characters'),
+  body('organizationDomain')
+    .optional()
+    .trim()
+    .isLength({ max: 255 })
+    .withMessage('Domain must be less than 255 characters'),
   body('role')
     .optional()
     .isIn(['admin', 'manager', 'project_manager', 'developer', 'viewer'])
     .withMessage('Invalid role'),
+  body('department')
+    .optional()
+    .isIn(['salesforce', 'web_development', 'mobile_development', null])
+    .withMessage('Invalid department'),
   handleValidationErrors,
 ];
 
@@ -82,6 +97,18 @@ export const validateCreateProject = [
     .optional()
     .isArray()
     .withMessage('Members must be an array'),
+  body('department')
+    .optional()
+    .isIn(['salesforce', 'web_development', 'mobile_development'])
+    .withMessage('Invalid department'),
+  body('technologies')
+    .optional()
+    .isArray()
+    .withMessage('Technologies must be an array'),
+  body('clouds')
+    .optional()
+    .isArray()
+    .withMessage('Clouds must be an array'),
   handleValidationErrors,
 ];
 
@@ -133,6 +160,14 @@ export const validateCreateIssue = [
     .optional()
     .isMongoId()
     .withMessage('Invalid assignee ID'),
+  body('assignees')
+    .optional()
+    .isArray()
+    .withMessage('Assignees must be an array'),
+  body('assignees.*')
+    .optional()
+    .isMongoId()
+    .withMessage('Invalid assignee ID in array'),
   body('labels')
     .optional()
     .isArray()
@@ -263,6 +298,25 @@ export const validatePagination = [
     .optional()
     .isInt({ min: 1, max: 100 })
     .withMessage('Limit must be between 1 and 100'),
+  handleValidationErrors,
+];
+
+export const validateForgotPassword = [
+  body('email')
+    .notEmpty()
+    .withMessage('Email is required')
+    .isEmail()
+    .withMessage('Please provide a valid email')
+    .normalizeEmail(),
+  handleValidationErrors,
+];
+
+export const validateResetPassword = [
+  body('password')
+    .isLength({ min: 8 })
+    .withMessage('Password must be at least 8 characters long')
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
+    .withMessage('Password must contain at least one uppercase letter, one lowercase letter, and one number'),
   handleValidationErrors,
 ];
 

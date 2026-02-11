@@ -106,23 +106,29 @@ export const handleMicrosoftCallback = async (req, res) => {
       );
     } catch (tokenError) {
       const errorDetails = tokenError.response?.data || tokenError.message;
-      console.error('Token exchange error:', JSON.stringify(errorDetails, null, 2));
-      console.error('Request details:', {
-        tenantId: process.env.MICROSOFT_TENANT_ID,
-        clientId: process.env.MICROSOFT_CLIENT_ID,
-        clientSecretLength: process.env.MICROSOFT_CLIENT_SECRET?.length || 0,
-        clientSecretPrefix: process.env.MICROSOFT_CLIENT_SECRET?.substring(0, 5) || 'missing',
-        redirectUri,
-        hasCode: !!code,
-        codeLength: code?.length || 0,
-      });
+      
+      // Log error details only in development
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Token exchange error:', JSON.stringify(errorDetails, null, 2));
+        console.error('Request details:', {
+          tenantId: process.env.MICROSOFT_TENANT_ID,
+          clientId: process.env.MICROSOFT_CLIENT_ID,
+          clientSecretLength: process.env.MICROSOFT_CLIENT_SECRET?.length || 0,
+          redirectUri,
+          hasCode: !!code,
+          codeLength: code?.length || 0,
+        });
+      } else {
+        // In production, log minimal error info
+        console.error('Token exchange error:', tokenError.response?.data?.error || 'Unknown error');
+      }
       
       // Provide specific error messages
       if (tokenError.response?.data?.error === 'invalid_client') {
-        console.error('Invalid client error - checking configuration...');
-        console.error('Client ID exists:', !!process.env.MICROSOFT_CLIENT_ID);
-        console.error('Client Secret exists:', !!process.env.MICROSOFT_CLIENT_SECRET);
-        console.error('Tenant ID exists:', !!process.env.MICROSOFT_TENANT_ID);
+        // Log error without exposing sensitive configuration details
+        if (process.env.NODE_ENV !== 'production') {
+          console.error('Invalid client error - Microsoft OAuth configuration issue detected');
+        }
         return res.redirect(
           `${process.env.FRONTEND_URL || 'http://localhost:5173'}/settings?error=invalid_client_credentials`
         );
@@ -413,14 +419,12 @@ export const disconnectIntegration = async (req, res) => {
  */
 export const testMicrosoftConfig = async (req, res) => {
   try {
+    // Only return configuration status, not actual values (security)
     const config = {
       hasClientId: !!process.env.MICROSOFT_CLIENT_ID,
-      clientId: process.env.MICROSOFT_CLIENT_ID,
       hasClientSecret: !!process.env.MICROSOFT_CLIENT_SECRET,
-      clientSecretLength: process.env.MICROSOFT_CLIENT_SECRET?.length || 0,
-      clientSecretPrefix: process.env.MICROSOFT_CLIENT_SECRET?.substring(0, 5) || 'missing',
       hasTenantId: !!process.env.MICROSOFT_TENANT_ID,
-      tenantId: process.env.MICROSOFT_TENANT_ID,
+      // Only show non-sensitive URLs
       backendUrl: process.env.BACKEND_URL || 'http://localhost:5000',
       redirectUri: `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/microsoft/callback`,
       frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',

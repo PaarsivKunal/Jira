@@ -7,6 +7,8 @@ import { existsSync, mkdirSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { getPaginationParams, createPaginationResponse } from '../utils/pagination.js';
+import { sendErrorResponse } from '../utils/errorResponse.js';
+import { FILE_UPLOAD } from '../utils/constants.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -69,7 +71,7 @@ const allowedExtensions = /\.(jpg|jpeg|png|gif|webp|pdf|doc|docx|xls|xlsx|ppt|pp
 const upload = multer({
   storage,
   limits: {
-    fileSize: parseInt(process.env.MAX_FILE_SIZE) || 10 * 1024 * 1024, // Default 10MB
+    fileSize: parseInt(process.env.MAX_FILE_SIZE) || FILE_UPLOAD.MAX_SIZE,
   },
   fileFilter: (req, file, cb) => {
     // Check MIME type
@@ -126,7 +128,7 @@ export const getAttachments = async (req, res) => {
 
     res.json(createPaginationResponse(attachments, page, limit, total));
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendErrorResponse(res, 500, 'Failed to fetch attachments', req.id, process.env.NODE_ENV === 'development' ? { error: error.message } : null);
   }
 };
 
@@ -141,7 +143,7 @@ export const getIssueAttachments = async (req, res) => {
 
     res.json(attachments);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendErrorResponse(res, 500, 'Failed to fetch issue attachments', req.id, process.env.NODE_ENV === 'development' ? { error: error.message } : null);
   }
 };
 
@@ -243,7 +245,7 @@ export const uploadProjectAttachment = async (req, res) => {
           console.error('Error deleting file:', unlinkError);
         }
       }
-      res.status(500).json({ message: error.message });
+      sendErrorResponse(res, 500, 'Failed to upload project attachment', req.id, process.env.NODE_ENV === 'development' ? { error: error.message } : null);
     }
   });
 };
@@ -284,7 +286,7 @@ export const downloadAttachment = async (req, res) => {
     res.setHeader('Content-Type', attachment.mimeType);
     res.sendFile(path.resolve(filePath));
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendErrorResponse(res, 500, 'Failed to download attachment', req.id, process.env.NODE_ENV === 'development' ? { error: error.message } : null);
   }
 };
 
@@ -303,7 +305,7 @@ export const getAttachment = async (req, res) => {
 
     res.json(attachment);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendErrorResponse(res, 500, 'Failed to fetch attachment', req.id, process.env.NODE_ENV === 'development' ? { error: error.message } : null);
   }
 };
 
@@ -347,7 +349,7 @@ export const deleteAttachment = async (req, res) => {
     await Attachment.findByIdAndDelete(req.params.id);
     res.json({ message: 'Attachment deleted' });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendErrorResponse(res, 500, 'Failed to delete attachment', req.id, process.env.NODE_ENV === 'development' ? { error: error.message } : null);
   }
 };
 

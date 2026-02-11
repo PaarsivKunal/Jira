@@ -1,6 +1,7 @@
 import WorkLog from '../models/WorkLog.js';
 import Issue from '../models/Issue.js';
 import Activity from '../models/Activity.js';
+import { sendErrorResponse } from '../utils/errorResponse.js';
 
 // @desc    Get work logs for an issue
 // @route   GET /api/issues/:issueId/worklogs
@@ -13,7 +14,7 @@ export const getWorkLogs = async (req, res) => {
 
     res.json(workLogs);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendErrorResponse(res, 500, 'Failed to fetch work logs', req.id, process.env.NODE_ENV === 'development' ? { error: error.message } : null);
   }
 };
 
@@ -54,9 +55,16 @@ export const createWorkLog = async (req, res) => {
       'name email avatar'
     );
 
+    // Emit Socket.io event for real-time updates
+    const io = req.app.get('io');
+    if (io) {
+      const projectId = issue.projectId._id || issue.projectId;
+      io.to(`project-${projectId}`).emit('worklog:created', populatedWorkLog);
+    }
+
     res.status(201).json(populatedWorkLog);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendErrorResponse(res, 500, 'Failed to create work log', req.id, process.env.NODE_ENV === 'development' ? { error: error.message } : null);
   }
 };
 
@@ -84,15 +92,25 @@ export const updateWorkLog = async (req, res) => {
     ).populate('userId', 'name email avatar');
 
     // Update issue time spent
+    let issue = null;
     if (req.body.timeSpent) {
-      const issue = await Issue.findById(workLog.issueId);
+      issue = await Issue.findById(workLog.issueId);
       issue.timeSpent = (issue.timeSpent || 0) - oldTimeSpent / 60 + req.body.timeSpent / 60;
       await issue.save();
+    } else {
+      issue = await Issue.findById(workLog.issueId);
+    }
+
+    // Emit Socket.io event for real-time updates
+    const io = req.app.get('io');
+    if (io && issue) {
+      const projectId = issue.projectId._id || issue.projectId;
+      io.to(`project-${projectId}`).emit('worklog:updated', updatedWorkLog);
     }
 
     res.json(updatedWorkLog);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendErrorResponse(res, 500, 'Failed to update work log', req.id, process.env.NODE_ENV === 'development' ? { error: error.message } : null);
   }
 };
 
@@ -121,9 +139,17 @@ export const deleteWorkLog = async (req, res) => {
     await issue.save();
 
     await WorkLog.findByIdAndDelete(req.params.id);
+
+    // Emit Socket.io event for real-time updates
+    const io = req.app.get('io');
+    if (io && issue) {
+      const projectId = issue.projectId._id || issue.projectId;
+      io.to(`project-${projectId}`).emit('worklog:deleted', { workLogId: req.params.id, issueId: workLog.issueId });
+    }
+
     res.json({ message: 'Work log removed' });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendErrorResponse(res, 500, 'Failed to delete work log', req.id, process.env.NODE_ENV === 'development' ? { error: error.message } : null);
   }
 };
 

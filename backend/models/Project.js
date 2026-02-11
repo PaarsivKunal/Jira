@@ -10,10 +10,15 @@ const projectSchema = mongoose.Schema(
     key: {
       type: String,
       required: [true, 'Please add a project key'],
-      unique: true,
       uppercase: true,
       trim: true,
       maxlength: [10, 'Project key must be 10 characters or less'],
+    },
+    organization: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Organization',
+      required: [true, 'Project must belong to an organization'],
+      index: true,
     },
     description: {
       type: String,
@@ -30,6 +35,18 @@ const projectSchema = mongoose.Schema(
         ref: 'User',
       },
     ],
+    department: {
+      type: String,
+      enum: ['salesforce', 'web_development', 'mobile_development'],
+    },
+    technologies: {
+      type: [String],
+      default: [],
+    },
+    clouds: {
+      type: [String],
+      default: [],
+    },
   },
   {
     timestamps: true,
@@ -37,9 +54,12 @@ const projectSchema = mongoose.Schema(
 );
 
 // Indexes for faster queries
+projectSchema.index({ key: 1, organization: 1 }, { unique: true }); // Key unique per organization
+projectSchema.index({ organization: 1 }); // For filtering by organization
 projectSchema.index({ lead: 1 }); // For finding projects by lead
 projectSchema.index({ members: 1 }); // For finding projects by member
 projectSchema.index({ createdAt: -1 }); // For sorting by creation date
+projectSchema.index({ department: 1 }); // For filtering by department
 
 const Project = mongoose.model('Project', projectSchema);
 

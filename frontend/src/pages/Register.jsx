@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext'; // Import useAuth
+import { useAuth } from '../context/AuthContext';
 import { Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
+import {
+  DEPARTMENTS,
+} from '../config/departments';
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -11,17 +14,47 @@ const Register = () => {
     password: '',
     confirmPassword: '',
     role: 'developer',
+    department: '',
+    organizationName: '',
+    organizationDomain: '',
   });
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const { register } = useAuth(); // Use context
+  const [existingOrg, setExistingOrg] = useState(null);
+  const { register } = useAuth();
   const navigate = useNavigate();
+
+  const extractDomain = (email) => {
+    const parts = email.split('@');
+    return parts.length > 1 ? parts[1] : null;
+  };
 
   useEffect(() => {
     const signupEmail = localStorage.getItem('signupEmail');
+    const suggestedOrgName = localStorage.getItem('suggestedOrgName');
+    const suggestedDomain = localStorage.getItem('suggestedDomain');
+    const existingOrgData = localStorage.getItem('existingOrg');
+    
     if (signupEmail) {
       setFormData(prev => ({ ...prev, email: signupEmail }));
+    }
+    
+    if (suggestedOrgName) {
+      setFormData(prev => ({ 
+        ...prev, 
+        organizationName: suggestedOrgName,
+        organizationDomain: suggestedDomain || extractDomain(signupEmail),
+      }));
+    }
+    
+    if (existingOrgData) {
+      try {
+        const org = JSON.parse(existingOrgData);
+        setExistingOrg(org);
+      } catch (error) {
+        console.error('Failed to parse existing org data:', error);
+      }
     }
   }, []);
 
@@ -33,18 +66,38 @@ const Register = () => {
       return;
     }
 
+    // Validate department only for developers (managers can work across departments)
+    if (formData.role === 'developer' && !formData.department) {
+      toast.error('Please select a department');
+      return;
+    }
+
+    // Validate organization name
+    if (!formData.organizationName || formData.organizationName.trim().length === 0) {
+      toast.error('Organization name is required');
+      return;
+    }
+
     setIsLoading(true);
     const result = await register({
       name: formData.name,
       email: formData.email,
       password: formData.password,
       role: formData.role,
+      department: formData.department || null,
+      organizationName: formData.organizationName.trim(),
+      organizationDomain: formData.organizationDomain || null,
     });
 
     setIsLoading(false);
 
     if (result.success) {
-      navigate('/');
+      // Clear localStorage
+      localStorage.removeItem('signupEmail');
+      localStorage.removeItem('suggestedOrgName');
+      localStorage.removeItem('suggestedDomain');
+      localStorage.removeItem('existingOrg');
+      navigate('/dashboard');
     }
   };
 
@@ -108,9 +161,15 @@ const Register = () => {
                 name="role"
                 className="input mt-1"
                 value={formData.role}
-                onChange={(e) =>
-                  setFormData({ ...formData, role: e.target.value })
-                }
+                onChange={(e) => {
+                  const newRole = e.target.value;
+                  setFormData({
+                    ...formData,
+                    role: newRole,
+                    // Clear department if not developer or manager
+                    department: (newRole === 'developer' || newRole === 'manager') ? formData.department : '',
+                  });
+                }}
               >
                 <option value="developer">Developer</option>
                 <option value="manager">Manager</option>
@@ -119,6 +178,51 @@ const Register = () => {
                 <option value="viewer">Viewer</option>
               </select>
             </div>
+
+            {/* Department Selection - Required for Developer, Optional for Manager */}
+            {formData.role === 'developer' && (
+              <div>
+                <label htmlFor="department" className="block text-sm font-medium text-gray-700">
+                  Department *
+                </label>
+                <select
+                  id="department"
+                  name="department"
+                  className="input mt-1"
+                  value={formData.department}
+                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                  required
+                >
+                  <option value="">Select Department</option>
+                  <option value={DEPARTMENTS.SALESFORCE}>Salesforce</option>
+                  <option value={DEPARTMENTS.WEB_DEVELOPMENT}>Web Development</option>
+                  <option value={DEPARTMENTS.MOBILE_DEVELOPMENT}>Mobile Development</option>
+                </select>
+              </div>
+            )}
+
+            {formData.role === 'manager' && (
+              <div>
+                <label htmlFor="department" className="block text-sm font-medium text-gray-700">
+                  Department (Optional)
+                </label>
+                <select
+                  id="department"
+                  name="department"
+                  className="input mt-1"
+                  value={formData.department}
+                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                >
+                  <option value="">No Department (Can assign to anyone)</option>
+                  <option value={DEPARTMENTS.SALESFORCE}>Salesforce</option>
+                  <option value={DEPARTMENTS.WEB_DEVELOPMENT}>Web Development</option>
+                  <option value={DEPARTMENTS.MOBILE_DEVELOPMENT}>Mobile Development</option>
+                </select>
+                <p className="mt-1 text-xs text-gray-500">
+                  Managers without a department can assign tasks to anyone across all departments
+                </p>
+              </div>
+            )}
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
                 Password

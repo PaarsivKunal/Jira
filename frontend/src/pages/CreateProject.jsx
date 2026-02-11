@@ -1,8 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight, ChevronDown, FolderKanban, LayoutGrid, List, Columns } from 'lucide-react';
 import { createProject } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
+import {
+  DEPARTMENTS,
+  SALESFORCE_CLOUDS,
+  WEB_TECHNOLOGIES,
+  MOBILE_TECHNOLOGIES,
+} from '../config/departments';
 
 const templates = [
   {
@@ -32,26 +39,104 @@ const templates = [
 ];
 
 const CreateProject = () => {
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     name: 'Landing Page',
     key: 'LP',
     template: 'web-design',
     projectType: 'team-managed',
     access: 'open',
+    department: '',
+    technologies: [],
+    clouds: [],
   });
   const [showMore, setShowMore] = useState(false);
   const navigate = useNavigate();
+
+  // Auto-populate department for managers
+  useEffect(() => {
+    if (user?.role === 'manager' && user?.department) {
+      setFormData((prev) => ({
+        ...prev,
+        department: user.department,
+      }));
+    }
+  }, [user]);
+
+  // Get available options based on selected department
+  const getAvailableOptions = () => {
+    if (formData.department === DEPARTMENTS.SALESFORCE) {
+      return SALESFORCE_CLOUDS;
+    } else if (formData.department === DEPARTMENTS.WEB_DEVELOPMENT) {
+      return WEB_TECHNOLOGIES;
+    } else if (formData.department === DEPARTMENTS.MOBILE_DEVELOPMENT) {
+      return MOBILE_TECHNOLOGIES;
+    }
+    return [];
+  };
+
+  const handleDepartmentChange = (department) => {
+    setFormData({
+      ...formData,
+      department,
+      technologies: [],
+      clouds: [],
+    });
+  };
+
+  const handleOptionToggle = (option) => {
+    if (formData.department === DEPARTMENTS.SALESFORCE) {
+      const updatedClouds = formData.clouds.includes(option)
+        ? formData.clouds.filter((c) => c !== option)
+        : [...formData.clouds, option];
+      setFormData({ ...formData, clouds: updatedClouds });
+    } else {
+      const updatedTechs = formData.technologies.includes(option)
+        ? formData.technologies.filter((t) => t !== option)
+        : [...formData.technologies, option];
+      setFormData({ ...formData, technologies: updatedTechs });
+    }
+  };
 
   const selectedTemplate = templates.find((t) => t.id === formData.template);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (!formData.department) {
+      toast.error('Please select a department');
+      return;
+    }
+
+    if (formData.department === DEPARTMENTS.SALESFORCE && formData.clouds.length === 0) {
+      toast.error('Please select at least one Salesforce Cloud');
+      return;
+    }
+
+    if (
+      (formData.department === DEPARTMENTS.WEB_DEVELOPMENT ||
+        formData.department === DEPARTMENTS.MOBILE_DEVELOPMENT) &&
+      formData.technologies.length === 0
+    ) {
+      toast.error('Please select at least one technology');
+      return;
+    }
+
     try {
-      const response = await createProject({
+      const projectData = {
         name: formData.name,
         key: formData.key,
         description: `Project created with ${selectedTemplate?.name} template`,
-      });
+        department: formData.department,
+      };
+
+      if (formData.department === DEPARTMENTS.SALESFORCE) {
+        projectData.clouds = formData.clouds;
+      } else {
+        projectData.technologies = formData.technologies;
+      }
+
+      const response = await createProject(projectData);
       toast.success('Project created successfully');
       navigate(`/projects/${response.data._id}/board`);
     } catch (error) {
@@ -203,6 +288,80 @@ const CreateProject = () => {
                         maxLength={10}
                       />
                     </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Department *
+                        {user?.role === 'manager' && user?.department && (
+                          <span className="ml-2 text-xs text-gray-500 font-normal">
+                            (Auto-filled from your profile)
+                          </span>
+                        )}
+                      </label>
+                      <select
+                        value={formData.department}
+                        onChange={(e) => handleDepartmentChange(e.target.value)}
+                        disabled={user?.role === 'manager' && user?.department}
+                        className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 ${
+                          user?.role === 'manager' && user?.department
+                            ? 'bg-gray-100 cursor-not-allowed'
+                            : ''
+                        }`}
+                        required
+                      >
+                        <option value="">Select Department</option>
+                        <option value={DEPARTMENTS.SALESFORCE}>Salesforce</option>
+                        <option value={DEPARTMENTS.WEB_DEVELOPMENT}>Web Development</option>
+                        <option value={DEPARTMENTS.MOBILE_DEVELOPMENT}>Mobile Development</option>
+                      </select>
+                    </div>
+
+                    {/* Technology/Cloud Selection */}
+                    {formData.department && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          {formData.department === DEPARTMENTS.SALESFORCE
+                            ? 'Salesforce Clouds *'
+                            : 'Technologies *'}
+                        </label>
+                        <div className="space-y-2 max-h-48 overflow-y-auto border border-gray-300 rounded-lg p-3">
+                          {getAvailableOptions().map((option) => {
+                            const isSelected =
+                              formData.department === DEPARTMENTS.SALESFORCE
+                                ? formData.clouds.includes(option)
+                                : formData.technologies.includes(option);
+                            return (
+                              <label
+                                key={option}
+                                className="flex items-center space-x-2 p-2 rounded cursor-pointer hover:bg-gray-50"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => handleOptionToggle(option)}
+                                  className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                                />
+                                <span className="text-sm text-gray-700">
+                                  {option}
+                                </span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                        {formData.department === DEPARTMENTS.SALESFORCE &&
+                          formData.clouds.length === 0 && (
+                            <p className="text-xs text-red-600 mt-1">
+                              Please select at least one Salesforce Cloud
+                            </p>
+                          )}
+                        {formData.department !== DEPARTMENTS.SALESFORCE &&
+                          formData.technologies.length === 0 && (
+                            <p className="text-xs text-red-600 mt-1">
+                              Please select at least one technology
+                            </p>
+                          )}
+                      </div>
+                    )}
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Access</label>

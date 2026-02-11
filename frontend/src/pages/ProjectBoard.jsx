@@ -35,12 +35,14 @@ import { useState, useEffect } from 'react';
 import IssueModal from '../components/issues/IssueModal';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext';
 import SkeletonLoader from '../components/common/SkeletonLoader';
 
 const ProjectBoard = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { joinProject, leaveProject } = useSocket();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeView, setActiveView] = useState('board');
   const [defaultStatus, setDefaultStatus] = useState(null);
@@ -79,6 +81,16 @@ const ProjectBoard = () => {
       issue.labels?.some((label) => label.toLowerCase().includes(query))
     );
   }) || [];
+
+  // Join project room for real-time updates
+  useEffect(() => {
+    if (id) {
+      joinProject(id);
+      return () => {
+        leaveProject(id);
+      };
+    }
+  }, [id, joinProject, leaveProject]);
 
   // Keyboard shortcut: Escape to clear search
   useEffect(() => {

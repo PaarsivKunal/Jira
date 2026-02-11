@@ -3,12 +3,17 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { SocketProvider } from './context/SocketContext';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import Navbar from './components/common/Navbar';
 import Sidebar from './components/common/Sidebar';
+import PWAInstallPrompt from './components/common/PWAInstallPrompt';
+import OfflineIndicator from './components/common/OfflineIndicator';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import SignUp from './pages/SignUp';
+import ResetPassword from './pages/ResetPassword';
+import ForgotPassword from './pages/ForgotPassword';
 import AccountDetails from './pages/AccountDetails';
 import IntegrationSettings from './pages/IntegrationSettings';
 import SiteName from './pages/SiteName';
@@ -22,6 +27,7 @@ import FormBuilder from './pages/FormBuilder';
 import FormView from './pages/FormView';
 import ReportBuilder from './pages/ReportBuilder';
 import ReportView from './pages/ReportView';
+import UserManagement from './pages/UserManagement';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -48,6 +54,21 @@ const ProtectedRoute = ({ children }) => {
   return user ? children : <Navigate to="/login" />;
 };
 
+const RootRedirect = () => {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-gray-500">Loading...</div>
+      </div>
+    );
+  }
+
+  // If user is logged in, redirect to dashboard, otherwise to login
+  return <Navigate to={user ? "/dashboard" : "/login"} replace />;
+};
+
 const Layout = ({ children }) => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
@@ -67,13 +88,23 @@ function App() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <Router>
+          <SocketProvider>
+            <Router
+              future={{
+                v7_startTransition: true,
+                v7_relativeSplatPath: true,
+              }}
+            >
             <Toaster position="top-right" />
+            <OfflineIndicator />
+            <PWAInstallPrompt />
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/signup" element={<SignUp />} />
-              <Route path="/" element={<Navigate to="/signup" replace />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password/:token" element={<ResetPassword />} />
+              <Route path="/" element={<RootRedirect />} />
               <Route path="/account-details" element={<AccountDetails />} />
               <Route
                 path="/settings"
@@ -181,8 +212,19 @@ function App() {
                   </ProtectedRoute>
                 }
               />
+              <Route
+                path="/admin/users"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <UserManagement />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
             </Routes>
-          </Router>
+            </Router>
+          </SocketProvider>
         </AuthProvider>
       </QueryClientProvider>
     </ErrorBoundary>

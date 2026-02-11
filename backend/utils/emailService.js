@@ -1,9 +1,10 @@
 import nodemailer from 'nodemailer';
 import MicrosoftIntegration from '../models/MicrosoftIntegration.js';
+import User from '../models/User.js';
 import { getValidAccessToken, sendOutlookEmail } from '../services/microsoftGraphService.js';
 
 const createTransporter = () => {
-  return nodemailer.createTransporter({
+  return nodemailer.createTransport({
     host: process.env.EMAIL_HOST || 'smtp.gmail.com',
     port: parseInt(process.env.EMAIL_PORT || '587'),
     secure: false, // true for 465, false for other ports
@@ -15,14 +16,22 @@ const createTransporter = () => {
 };
 
 /**
- * Send email - tries Outlook first if user has it connected, otherwise uses SMTP
+ * Send email - tries recipient's Outlook first if they have it connected, otherwise uses SMTP
  */
-const sendEmail = async (userId, to, subject, htmlBody, textBody) => {
+const sendEmail = async (recipientEmail, subject, htmlBody, textBody) => {
   try {
-    // Check if user has Outlook connected
-    if (userId) {
+    // Normalize email to lowercase for lookup
+    const normalizedEmail = Array.isArray(recipientEmail) 
+      ? recipientEmail[0].toLowerCase() 
+      : recipientEmail.toLowerCase();
+    
+    // Find user by email to check their Outlook integration
+    const recipientUser = await User.findOne({ email: normalizedEmail });
+    
+    // Check if recipient has Outlook connected
+    if (recipientUser) {
       const integration = await MicrosoftIntegration.findOne({
-        userId,
+        userId: recipientUser._id,
         'outlook.isConnected': true,
       });
 
@@ -35,7 +44,9 @@ const sendEmail = async (userId, to, subject, htmlBody, textBody) => {
             process.env.MICROSOFT_TENANT_ID
           );
 
-          await sendOutlookEmail(accessToken, to, subject, htmlBody, true);
+          // Use recipient's Outlook email (from integration) or their registered email
+          const outlookEmail = integration.outlook.email || normalizedEmail;
+          await sendOutlookEmail(accessToken, outlookEmail, subject, htmlBody, true);
           return { success: true, method: 'outlook' };
         } catch (outlookError) {
           console.error('Outlook email failed, falling back to SMTP:', outlookError.message);
@@ -47,8 +58,8 @@ const sendEmail = async (userId, to, subject, htmlBody, textBody) => {
     // Fallback to SMTP
     const transporter = createTransporter();
     const mailOptions = {
-      from: `"Jira Team" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
-      to: Array.isArray(to) ? to.join(', ') : to,
+      from: `"Paarsiv Team" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
+      to: Array.isArray(recipientEmail) ? recipientEmail.join(', ') : recipientEmail,
       subject,
       html: htmlBody,
       text: textBody,
@@ -65,7 +76,8 @@ const sendEmail = async (userId, to, subject, htmlBody, textBody) => {
 export const sendIssueNotification = async (issue, action, recipientEmail) => {
   try {
     const actionText = action.charAt(0).toUpperCase() + action.slice(1);
-    const to = recipientEmail || issue.assignee?.email || issue.reporter?.email;
+    // Support multiple assignees
+    const to = recipientEmail || issue.assignees?.[0]?.email || issue.assignee?.email || issue.reporter?.email;
 
     if (!to) {
       console.log('No email recipient found for issue notification');
@@ -81,7 +93,7 @@ export const sendIssueNotification = async (issue, action, recipientEmail) => {
       </head>
       <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="background-color: #0052CC; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
-          <h1 style="color: white; margin: 0;">Jira</h1>
+          <h1 style="color: white; margin: 0;">Paarsiv</h1>
         </div>
         <div style="background-color: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px;">
           <h2 style="color: #333; margin-top: 0;">Issue ${actionText}</h2>
@@ -90,7 +102,7 @@ export const sendIssueNotification = async (issue, action, recipientEmail) => {
             <h3 style="margin-top: 0; color: #0052CC;">${issue.key}: ${issue.title}</h3>
             <p><strong>Status:</strong> <span style="text-transform: capitalize;">${issue.status?.replace('_', ' ')}</span></p>
             <p><strong>Priority:</strong> <span style="text-transform: capitalize;">${issue.priority}</span></p>
-            <p><strong>Assignee:</strong> ${issue.assignee?.name || 'Unassigned'}</p>
+            <p><strong>Assignee${issue.assignees?.length > 1 ? 's' : ''}:</strong> ${issue.assignees?.map(a => a.name).join(', ') || issue.assignee?.name || 'Unassigned'}</p>
             <p><strong>Project:</strong> ${issue.projectId?.name || 'Unknown'}</p>
           </div>
           <div style="text-align: center; margin-top: 25px;">
@@ -98,7 +110,7 @@ export const sendIssueNotification = async (issue, action, recipientEmail) => {
           </div>
         </div>
         <div style="text-align: center; margin-top: 20px; color: #999; font-size: 12px;">
-          <p>© ${new Date().getFullYear()} Jira. All rights reserved.</p>
+          <p>© ${new Date().getFullYear()} Paarsiv. All rights reserved.</p>
         </div>
       </body>
       </html>
@@ -118,9 +130,8 @@ export const sendIssueNotification = async (issue, action, recipientEmail) => {
       View Issue: ${process.env.FRONTEND_URL}/issues/${issue._id}
     `;
 
-    // Try to get reporter's userId for Outlook integration
-    const reporterId = issue.reporter?._id || issue.reporter;
-    const result = await sendEmail(reporterId, to, `Issue ${actionText}: [${issue.key}] ${issue.title}`, htmlBody, textBody);
+    // Send to recipient's email (will use their Outlook if connected)
+    const result = await sendEmail(to, `Issue ${actionText}: [${issue.key}] ${issue.title}`, htmlBody, textBody);
     
     console.log(`Issue notification email sent to ${to} via ${result.method}: ${result.messageId || 'success'}`);
     return result;
@@ -143,8 +154,14 @@ export const sendCommentNotification = async (issue, comment, commenter) => {
     
     const recipients = new Set();
     
-    // Add assignee
-    if (issue.assignee?.email && issue.assignee.email !== commenter.email) {
+    // Add assignees (support multiple)
+    if (issue.assignees && Array.isArray(issue.assignees)) {
+      issue.assignees.forEach(assignee => {
+        if (assignee?.email && assignee.email !== commenter.email) {
+          recipients.add(assignee.email);
+        }
+      });
+    } else if (issue.assignee?.email && issue.assignee.email !== commenter.email) {
       recipients.add(issue.assignee.email);
     }
     
@@ -181,7 +198,7 @@ export const sendCommentNotification = async (issue, comment, commenter) => {
       </head>
       <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="background-color: #0052CC; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
-          <h1 style="color: white; margin: 0;">Jira</h1>
+          <h1 style="color: white; margin: 0;">Paarsiv</h1>
         </div>
         <div style="background-color: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px;">
           <h2 style="color: #333; margin-top: 0;">New Comment Added</h2>
@@ -191,7 +208,7 @@ export const sendCommentNotification = async (issue, comment, commenter) => {
             <h3 style="margin-top: 0; color: #0052CC;">${issue.key}: ${issue.title}</h3>
             <p style="margin: 5px 0;"><strong>Status:</strong> <span style="text-transform: capitalize;">${issue.status?.replace('_', ' ')}</span></p>
             <p style="margin: 5px 0;"><strong>Priority:</strong> <span style="text-transform: capitalize;">${issue.priority}</span></p>
-            <p style="margin: 5px 0;"><strong>Assignee:</strong> ${issue.assignee?.name || 'Unassigned'}</p>
+            <p style="margin: 5px 0;"><strong>Assignee${issue.assignees?.length > 1 ? 's' : ''}:</strong> ${issue.assignees?.map(a => a.name).join(', ') || issue.assignee?.name || 'Unassigned'}</p>
             <p style="margin: 5px 0;"><strong>Project:</strong> ${issue.projectId?.name || 'Unknown'}</p>
           </div>
           
@@ -208,7 +225,7 @@ export const sendCommentNotification = async (issue, comment, commenter) => {
           </div>
         </div>
         <div style="text-align: center; margin-top: 20px; color: #999; font-size: 12px;">
-          <p>© ${new Date().getFullYear()} Jira. All rights reserved.</p>
+          <p>© ${new Date().getFullYear()} Paarsiv. All rights reserved.</p>
         </div>
       </body>
       </html>
@@ -222,7 +239,7 @@ export const sendCommentNotification = async (issue, comment, commenter) => {
       ${issue.key}: ${issue.title}
       Status: ${issue.status}
       Priority: ${issue.priority}
-      Assignee: ${issue.assignee?.name || 'Unassigned'}
+      Assignee${issue.assignees?.length > 1 ? 's' : ''}: ${issue.assignees?.map(a => a.name).join(', ') || issue.assignee?.name || 'Unassigned'}
       Project: ${issue.projectId?.name || 'Unknown'}
       
       Comment by ${commenter.name}:
@@ -231,12 +248,15 @@ export const sendCommentNotification = async (issue, comment, commenter) => {
       View Issue: ${process.env.FRONTEND_URL}/issues/${issue._id}
     `;
     
-    // Use commenter's userId for Outlook integration check
-    const commenterId = commenter._id || commenter;
-    const result = await sendEmail(commenterId, recipientEmails, `New Comment on [${issue.key}] ${issue.title}`, htmlBody, textBody);
+    // Send to all recipients (will use their Outlook if connected)
+    const emailPromises = recipientEmails.map(email => 
+      sendEmail(email, `New Comment on [${issue.key}] ${issue.title}`, htmlBody, textBody)
+    );
+    const results = await Promise.all(emailPromises);
     
-    console.log(`Comment notification email sent to ${recipientEmails.length} recipient(s) via ${result.method}: ${result.messageId || 'success'}`);
-    return { success: true, recipients: recipientEmails, ...result };
+    const successCount = results.filter(r => r.success).length;
+    console.log(`Comment notification email sent to ${successCount}/${recipientEmails.length} recipient(s)`);
+    return { success: true, recipients: recipientEmails, results };
   } catch (error) {
     console.error('Error sending comment notification email: ', error);
     return { success: false, error: error.message };
@@ -262,7 +282,7 @@ export const sendAssignmentNotification = async (issue, assignee, assignedBy) =>
       </head>
       <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="background-color: #0052CC; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
-          <h1 style="color: white; margin: 0;">Jira</h1>
+          <h1 style="color: white; margin: 0;">Paarsiv</h1>
         </div>
         <div style="background-color: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px;">
           <h2 style="color: #333; margin-top: 0;">New Assignment</h2>
@@ -289,7 +309,7 @@ export const sendAssignmentNotification = async (issue, assignee, assignedBy) =>
           </div>
         </div>
         <div style="text-align: center; margin-top: 20px; color: #999; font-size: 12px;">
-          <p>© ${new Date().getFullYear()} Jira. All rights reserved.</p>
+          <p>© ${new Date().getFullYear()} Paarsiv. All rights reserved.</p>
         </div>
       </body>
       </html>
@@ -312,9 +332,8 @@ export const sendAssignmentNotification = async (issue, assignee, assignedBy) =>
       View Issue: ${process.env.FRONTEND_URL}/issues/${issue._id}
     `;
     
-    // Use assignedBy's userId for Outlook integration check
-    const assignedById = assignedBy._id || assignedBy;
-    const result = await sendEmail(assignedById, assignee.email, `You've been assigned to [${issue.key}] ${issue.title}`, htmlBody, textBody);
+    // Send to assignee's email (will use their Outlook if connected)
+    const result = await sendEmail(assignee.email, `You've been assigned to [${issue.key}] ${issue.title}`, htmlBody, textBody);
     
     console.log(`Assignment notification email sent to ${assignee.email} via ${result.method}: ${result.messageId || 'success'}`);
     return result;
@@ -343,7 +362,7 @@ export const sendIssueCreatedNotification = async (issue, assignee) => {
       </head>
       <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="background-color: #0052CC; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
-          <h1 style="color: white; margin: 0;">Jira</h1>
+          <h1 style="color: white; margin: 0;">Paarsiv</h1>
         </div>
         <div style="background-color: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px;">
           <h2 style="color: #333; margin-top: 0;">New Issue Created</h2>
@@ -370,7 +389,7 @@ export const sendIssueCreatedNotification = async (issue, assignee) => {
           </div>
         </div>
         <div style="text-align: center; margin-top: 20px; color: #999; font-size: 12px;">
-          <p>© ${new Date().getFullYear()} Jira. All rights reserved.</p>
+          <p>© ${new Date().getFullYear()} Paarsiv. All rights reserved.</p>
         </div>
       </body>
       </html>
@@ -393,15 +412,174 @@ export const sendIssueCreatedNotification = async (issue, assignee) => {
       View Issue: ${process.env.FRONTEND_URL}/issues/${issue._id}
     `;
     
-    // Use reporter's userId for Outlook integration check
-    const reporterId = issue.reporter?._id || issue.reporter;
-    const result = await sendEmail(reporterId, assignee.email, `New Issue Assigned: [${issue.key}] ${issue.title}`, htmlBody, textBody);
+    // Send to assignee's email (will use their Outlook if connected)
+    const result = await sendEmail(assignee.email, `New Issue Assigned: [${issue.key}] ${issue.title}`, htmlBody, textBody);
     
     console.log(`Issue creation notification email sent to ${assignee.email} via ${result.method}: ${result.messageId || 'success'}`);
     return result;
   } catch (error) {
     console.error('Error sending issue creation notification email: ', error);
     return { success: false, error: error.message };
+  }
+};
+
+/**
+ * Send welcome email with password reset link
+ */
+export const sendWelcomeEmail = async (user, resetToken) => {
+  try {
+    const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+    
+    const htmlBody = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #0052CC; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+          <h1 style="color: white; margin: 0;">Welcome to Paarsiv!</h1>
+        </div>
+        <div style="background-color: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px;">
+          <h2 style="color: #333; margin-top: 0;">Welcome, ${user.name}!</h2>
+          <p>Thank you for registering with Paarsiv. We're excited to have you on board!</p>
+          
+          <div style="background-color: #fff; border-left: 4px solid #0052CC; padding: 15px; margin: 20px 0; border-radius: 4px;">
+            <p style="margin: 5px 0;"><strong>Your Account Details:</strong></p>
+            <p style="margin: 5px 0;"><strong>Email:</strong> ${user.email}</p>
+            <p style="margin: 5px 0;"><strong>Role:</strong> ${user.role.charAt(0).toUpperCase() + user.role.slice(1)}</p>
+            ${user.department ? `<p style="margin: 5px 0;"><strong>Department:</strong> ${user.department.replace('_', ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}</p>` : ''}
+          </div>
+          
+          <p style="margin-top: 25px;">To get started, please set your password by clicking the button below:</p>
+          
+          <div style="text-align: center; margin-top: 25px;">
+            <a href="${resetUrl}" 
+               style="display: inline-block; padding: 12px 24px; background-color: #0052CC; color: white; text-decoration: none; border-radius: 4px; font-weight: bold;">
+              Set Your Password
+            </a>
+          </div>
+          
+          <p style="margin-top: 25px; font-size: 12px; color: #666;">
+            Or copy and paste this link into your browser:<br>
+            <a href="${resetUrl}" style="color: #0052CC; word-break: break-all;">${resetUrl}</a>
+          </p>
+          
+          <p style="margin-top: 20px; font-size: 12px; color: #999;">
+            <strong>Note:</strong> This link will expire in 24 hours. If you didn't create an account, please ignore this email.
+          </p>
+        </div>
+        <div style="text-align: center; margin-top: 20px; color: #999; font-size: 12px;">
+          <p>© ${new Date().getFullYear()} Paarsiv. All rights reserved.</p>
+          <p>Visit us at: <a href="${process.env.FRONTEND_URL}" style="color: #0052CC;">${process.env.FRONTEND_URL}</a></p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const textBody = `
+      Welcome to Paarsiv!
+      
+      Welcome, ${user.name}!
+      
+      Thank you for registering with Paarsiv. We're excited to have you on board!
+      
+      Your Account Details:
+      Email: ${user.email}
+      Role: ${user.role}
+      ${user.department ? `Department: ${user.department}` : ''}
+      
+      To get started, please set your password by visiting:
+      ${resetUrl}
+      
+      This link will expire in 24 hours. If you didn't create an account, please ignore this email.
+      
+      Visit us at: ${process.env.FRONTEND_URL}
+      
+      © ${new Date().getFullYear()} Paarsiv. All rights reserved.
+    `;
+
+    const result = await sendEmail(user.email, 'Welcome to Paarsiv - Set Your Password', htmlBody, textBody);
+    
+    console.log(`Welcome email sent to ${user.email} via ${result.method}: ${result.messageId || 'success'}`);
+    return result;
+  } catch (error) {
+    console.error('Error sending welcome email: ', error);
+    return { success: false, error: error.message };
+  }
+};
+
+/**
+ * Send password reset email
+ */
+export const sendPasswordResetEmail = async (user, resetToken) => {
+  try {
+    const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+    
+    const htmlBody = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #0052CC; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+          <h1 style="color: white; margin: 0;">Paarsiv</h1>
+        </div>
+        <div style="background-color: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px;">
+          <h2 style="color: #333; margin-top: 0;">Password Reset Request</h2>
+          <p>Hello ${user.name},</p>
+          <p>You requested to reset your password. Click the button below to set a new password:</p>
+          
+          <div style="text-align: center; margin-top: 25px;">
+            <a href="${resetUrl}" 
+               style="display: inline-block; padding: 12px 24px; background-color: #0052CC; color: white; text-decoration: none; border-radius: 4px; font-weight: bold;">
+              Reset Password
+            </a>
+          </div>
+          
+          <p style="margin-top: 25px; font-size: 12px; color: #666;">
+            Or copy and paste this link into your browser:<br>
+            <a href="${resetUrl}" style="color: #0052CC; word-break: break-all;">${resetUrl}</a>
+          </p>
+          
+          <p style="margin-top: 20px; font-size: 12px; color: #999;">
+            <strong>Note:</strong> This link will expire in 24 hours. If you didn't request a password reset, please ignore this email.
+          </p>
+        </div>
+        <div style="text-align: center; margin-top: 20px; color: #999; font-size: 12px;">
+          <p>© ${new Date().getFullYear()} Paarsiv. All rights reserved.</p>
+          <p>Visit us at: <a href="${process.env.FRONTEND_URL}" style="color: #0052CC;">${process.env.FRONTEND_URL}</a></p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const textBody = `
+      Password Reset Request
+      
+      Hello ${user.name},
+      
+      You requested to reset your password. Visit the link below to set a new password:
+      
+      ${resetUrl}
+      
+      This link will expire in 24 hours. If you didn't request a password reset, please ignore this email.
+      
+      Visit us at: ${process.env.FRONTEND_URL}
+      
+      © ${new Date().getFullYear()} Paarsiv. All rights reserved.
+    `;
+
+    const result = await sendEmail(user.email, 'Password Reset Request', htmlBody, textBody);
+    
+    console.log(`Password reset email sent to ${user.email} via ${result.method}: ${result.messageId || 'success'}`);
+    return result;
+  } catch (error) {
+    console.error('Error sending password reset email: ', error);
+    throw error;
   }
 };
 

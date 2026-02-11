@@ -21,6 +21,7 @@ const __dirname = dirname(__filename);
 
 // Routes
 import authRoutes from './routes/auth.js';
+import organizationRoutes from './routes/organizations.js';
 import projectRoutes from './routes/projects.js';
 import issueRoutes from './routes/issues.js';
 import commentRoutes from './routes/comments.js';
@@ -33,6 +34,8 @@ import reportRoutes from './routes/reports.js';
 import shortcutRoutes from './routes/shortcuts.js';
 import sprintRoutes from './routes/sprints.js';
 import microsoftRoutes from './routes/microsoft.js';
+import filterRoutes from './routes/filters.js';
+import dashboardRoutes from './routes/dashboard.js';
 
 dotenv.config();
 
@@ -69,10 +72,26 @@ app.use(helmet({
 
 // CORS configuration
 const corsOptions = {
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: (origin, callback) => {
+    const allowedOrigins = process.env.FRONTEND_URL 
+      ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
+      : (process.env.NODE_ENV === 'production' ? [] : ['http://localhost:5173']);
+    
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin && process.env.NODE_ENV !== 'production') {
+      return callback(null, true);
+    }
+    
+    if (allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id'],
+  maxAge: 86400, // 24 hours
 };
 
 app.use(cors(corsOptions));
@@ -117,11 +136,12 @@ app.use('/api/uploads', express.static(join(__dirname, 'uploads')));
 // API Documentation
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
   customCss: '.swagger-ui .topbar { display: none }',
-  customSiteTitle: 'Jira API Documentation',
+  customSiteTitle: 'Paarsiv API Documentation',
 }));
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/organizations', organizationRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/issues', issueRoutes);
 app.use('/api/comments', commentRoutes);
@@ -133,6 +153,8 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/shortcuts', shortcutRoutes);
 app.use('/api/sprints', sprintRoutes);
 app.use('/api/microsoft', microsoftRoutes);
+app.use('/api/filters', filterRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // Socket.io for real-time updates
 io.on('connection', (socket) => {
@@ -140,6 +162,10 @@ io.on('connection', (socket) => {
 
   socket.on('join-project', (projectId) => {
     socket.join(`project-${projectId}`);
+  });
+
+  socket.on('leave-project', (projectId) => {
+    socket.leave(`project-${projectId}`);
   });
 
   socket.on('disconnect', () => {

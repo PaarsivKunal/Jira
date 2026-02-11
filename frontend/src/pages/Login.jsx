@@ -23,20 +23,12 @@ const Login = () => {
         <div className="text-center">
           <div className="flex items-center justify-center mb-6">
             <div className="w-10 h-10 bg-primary-600 rounded flex items-center justify-center mr-2">
-              <span className="text-white font-bold text-xl">J</span>
+              <span className="text-white font-bold text-xl">P</span>
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">Jira</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Paarsiv</h1>
           </div>
-          <h2 className="text-2xl font-bold text-gray-900">Sign in to Jira</h2>
-          <p className="mt-2 text-sm text-gray-600">
-            Or{' '}
-            <Link
-              to="/signup"
-              className="font-medium text-primary-600 hover:text-primary-500"
-            >
-              create a new account
-            </Link>
-          </p>
+          <h2 className="text-2xl font-bold text-gray-900">Sign in to Paarsiv</h2>
+          <p className="text-sm text-gray-600">Welcome back! Please enter your details.</p>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4">
@@ -59,9 +51,17 @@ const Login = () => {
               />
             </div>
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                Password
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                  Password
+                </label>
+                <Link
+                  to="/forgot-password"
+                  className="text-sm text-primary-600 hover:text-primary-500"
+                >
+                  Forgot password?
+                </Link>
+              </div>
               <div className="relative">
                 <input
                   id="password"
@@ -91,21 +91,8 @@ const Login = () => {
               Sign in
             </button>
           </div>
-          <div className="text-center">
-            <Link
-              to="/signup"
-              className="text-sm text-primary-600 hover:underline"
-            >
-              Already have Jira? Login
-            </Link>
-          </div>
+         
         </form>
-        <div className="text-center mt-8">
-          <div className="flex items-center justify-center text-primary-600">
-            <span className="text-xs">▲</span>
-            <span className="ml-1 text-xs font-medium">ATLASSIAN</span>
-          </div>
-        </div>
       </div>
     </div>
   );
