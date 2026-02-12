@@ -28,6 +28,7 @@ import FormView from './pages/FormView';
 import ReportBuilder from './pages/ReportBuilder';
 import ReportView from './pages/ReportView';
 import UserManagement from './pages/UserManagement';
+import Teams from './pages/Teams';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -220,6 +221,16 @@ function App() {
                   <ProtectedRoute>
                     <Layout>
                       <UserManagement />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/teams"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <Teams />
                     </Layout>
                   </ProtectedRoute>
                 }

@@ -30,9 +30,9 @@ const userSchema = mongoose.Schema(
       default: 'developer',
     },
     department: {
-      type: String,
-      enum: ['salesforce', 'web_development', 'mobile_development', null],
-      default: null,
+      type: [String],
+      enum: ['salesforce', 'web_development', 'mobile_development'],
+      default: [],
     },
     organization: {
       type: mongoose.Schema.Types.ObjectId,

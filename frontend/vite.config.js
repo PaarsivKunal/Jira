@@ -8,7 +8,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'prompt',
-      includeAssets: ['favicon.ico'],
+      includeAssets: ['favicon.ico', 'Logo.png'],
       manifest: {
         name: 'Paarsiv - Project Management',
         short_name: 'Paarsiv',
@@ -21,19 +21,19 @@ export default defineConfig({
         start_url: '/',
         icons: [
           {
-            src: 'pwa-192x192.png',
+            src: 'Logo.png',
             sizes: '192x192',
             type: 'image/png',
             purpose: 'any'
           },
           {
-            src: 'pwa-512x512.png',
+            src: 'Logo.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any'
           },
           {
-            src: 'pwa-512x512.png',
+            src: 'Logo.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'maskable'
@@ -45,14 +45,14 @@ export default defineConfig({
             short_name: 'Dashboard',
             description: 'View project dashboard',
             url: '/dashboard',
-            icons: [{ src: 'pwa-192x192.png', sizes: '192x192' }]
+            icons: [{ src: 'Logo.png', sizes: '192x192' }]
           },
           {
             name: 'Projects',
             short_name: 'Projects',
             description: 'View all projects',
             url: '/projects',
-            icons: [{ src: 'pwa-192x192.png', sizes: '192x192' }]
+            icons: [{ src: 'Logo.png', sizes: '192x192' }]
           }
         ]
       },

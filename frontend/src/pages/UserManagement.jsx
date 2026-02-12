@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Search, Filter, Users as UsersIcon, Building2 } from 'lucide-react';
-import { getUsers, createUser, createOrganization } from '../services/api';
+import { Plus, Search, Filter, Users as UsersIcon, Building2, Edit2 } from 'lucide-react';
+import { getUsers, createUser, createOrganization, updateUser } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import CreateUserModal from '../components/admin/CreateUserModal';
+import EditUserModal from '../components/admin/EditUserModal';
 import CreateOrganizationModal from '../components/admin/CreateOrganizationModal';
 import { DEPARTMENTS } from '../config/departments';
 
@@ -14,6 +15,8 @@ const UserManagement = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
   const [showCreateOrgModal, setShowCreateOrgModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
@@ -53,6 +56,20 @@ const UserManagement = () => {
     },
     onError: (error) => {
       toast.error(error.response?.data?.message || 'Failed to create user');
+    },
+  });
+
+  // Update user mutation
+  const updateUserMutation = useMutation({
+    mutationFn: ({ id, data }) => updateUser(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['users']);
+      setShowEditModal(false);
+      setEditingUser(null);
+      toast.success('User updated successfully');
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || 'Failed to update user');
     },
   });
 
@@ -138,11 +155,9 @@ const UserManagement = () => {
             className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
           >
             <option value="all">All Departments</option>
-            {Object.entries(DEPARTMENTS).map(([key, value]) => (
-              <option key={key} value={key}>
-                {value.label}
-              </option>
-            ))}
+            <option value={DEPARTMENTS.SALESFORCE}>Salesforce</option>
+            <option value={DEPARTMENTS.WEB_DEVELOPMENT}>Web Development</option>
+            <option value={DEPARTMENTS.MOBILE_DEVELOPMENT}>Mobile Development</option>
           </select>
         </div>
       </div>
@@ -214,6 +229,9 @@ const UserManagement = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Email
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -246,16 +264,44 @@ const UserManagement = () => {
                         {user.role.charAt(0).toUpperCase() + user.role.slice(1).replace('_', ' ')}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {user.department ? (
-                        user.department === DEPARTMENTS.SALESFORCE ? 'Salesforce' :
-                        user.department === DEPARTMENTS.WEB_DEVELOPMENT ? 'Web Development' :
-                        user.department === DEPARTMENTS.MOBILE_DEVELOPMENT ? 'Mobile Development' :
-                        user.department
+                    <td className="px-6 py-4 text-sm text-gray-500">
+                      {user.department && user.department.length > 0 ? (
+                        Array.isArray(user.department) ? (
+                          <div className="flex flex-wrap gap-1">
+                            {user.department.map(dept => {
+                              const deptLabel = dept === DEPARTMENTS.SALESFORCE ? 'Salesforce' :
+                                               dept === DEPARTMENTS.WEB_DEVELOPMENT ? 'Web Development' :
+                                               dept === DEPARTMENTS.MOBILE_DEVELOPMENT ? 'Mobile Development' : dept;
+                              return (
+                                <span key={dept} className="inline-block bg-gray-100 text-gray-800 text-xs px-2 py-1 rounded">
+                                  {deptLabel}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <span className="inline-block bg-gray-100 text-gray-800 text-xs px-2 py-1 rounded">
+                            {user.department === DEPARTMENTS.SALESFORCE ? 'Salesforce' :
+                             user.department === DEPARTMENTS.WEB_DEVELOPMENT ? 'Web Development' :
+                             user.department === DEPARTMENTS.MOBILE_DEVELOPMENT ? 'Mobile Development' : user.department}
+                          </span>
+                        )
                       ) : '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {user.email}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <button
+                        onClick={() => {
+                          setEditingUser(user);
+                          setShowEditModal(true);
+                        }}
+                        className="text-primary-600 hover:text-primary-900 transition-colors"
+                        title="Edit user"
+                      >
+                        <Edit2 className="w-5 h-5" />
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -271,6 +317,19 @@ const UserManagement = () => {
           onClose={() => setShowCreateModal(false)}
           onSubmit={(userData) => createUserMutation.mutate(userData)}
           isLoading={createUserMutation.isLoading}
+        />
+      )}
+
+      {/* Edit User Modal */}
+      {showEditModal && editingUser && (
+        <EditUserModal
+          user={editingUser}
+          onClose={() => {
+            setShowEditModal(false);
+            setEditingUser(null);
+          }}
+          onSubmit={(data) => updateUserMutation.mutate({ id: editingUser._id, data })}
+          isLoading={updateUserMutation.isLoading}
         />
       )}
 

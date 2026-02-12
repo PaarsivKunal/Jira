@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { X, Eye, EyeOff } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X } from 'lucide-react';
 import { DEPARTMENTS } from '../../config/departments';
 import toast from 'react-hot-toast';
 
@@ -11,22 +11,37 @@ const ROLES = [
   { value: 'viewer', label: 'Viewer' },
 ];
 
-const CreateUserModal = ({ onClose, onSubmit, isLoading }) => {
+const EditUserModal = ({ user, onClose, onSubmit, isLoading }) => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    password: '',
-    confirmPassword: '',
     role: 'developer',
     departments: [],
   });
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        name: user.name || '',
+        email: user.email || '',
+        role: user.role || 'developer',
+        departments: Array.isArray(user.department) ? user.department : (user.department ? [user.department] : []),
+      });
+    }
+  }, [user]);
+
+  const handleDepartmentToggle = (dept) => {
+    setFormData(prev => ({
+      ...prev,
+      departments: prev.departments.includes(dept)
+        ? prev.departments.filter(d => d !== dept)
+        : [...prev.departments, dept]
+    }));
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    // Validation
     if (!formData.name.trim()) {
       toast.error('Name is required');
       return;
@@ -37,41 +52,27 @@ const CreateUserModal = ({ onClose, onSubmit, isLoading }) => {
       return;
     }
 
-    if (!formData.password) {
-      toast.error('Password is required');
-      return;
-    }
-
-    if (formData.password.length < 8) {
-      toast.error('Password must be at least 8 characters');
-      return;
-    }
-
-    if (formData.password !== formData.confirmPassword) {
-      toast.error('Passwords do not match');
-      return;
-    }
-
-    // Validate department only for developers (managers can work across departments)
+    // Validate departments only for developers
     if (formData.role === 'developer' && formData.departments.length === 0) {
-      toast.error('Please select at least one department');
+      toast.error('Please select at least one department for developers');
       return;
     }
 
     onSubmit({
       name: formData.name.trim(),
       email: formData.email.trim(),
-      password: formData.password,
       role: formData.role,
       department: formData.departments,
     });
   };
 
+  if (!user) return null;
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
-          <h2 className="text-xl font-bold text-gray-900">Create User</h2>
+          <h2 className="text-xl font-bold text-gray-900">Edit User</h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -82,41 +83,39 @@ const CreateUserModal = ({ onClose, onSubmit, isLoading }) => {
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="edit-name" className="block text-sm font-medium text-gray-700 mb-1">
               Name *
             </label>
             <input
-              id="name"
+              id="edit-name"
               type="text"
               required
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-              placeholder="John Doe"
             />
           </div>
 
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="edit-email" className="block text-sm font-medium text-gray-700 mb-1">
               Email *
             </label>
             <input
-              id="email"
+              id="edit-email"
               type="email"
               required
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-              placeholder="john@example.com"
             />
           </div>
 
           <div>
-            <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="edit-role" className="block text-sm font-medium text-gray-700 mb-1">
               Role *
             </label>
             <select
-              id="role"
+              id="edit-role"
               required
               value={formData.role}
               onChange={(e) => {
@@ -125,7 +124,7 @@ const CreateUserModal = ({ onClose, onSubmit, isLoading }) => {
                   ...formData,
                   role: newRole,
                   // Clear departments if role is admin or viewer (they don't need departments)
-                  departments: (newRole === 'admin' || newRole === 'viewer') ? [] : formData.departments,
+                  departments: (newRole === 'admin' || newRole === 'viewer') ? [] : formData.departments
                 });
               }}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
@@ -149,19 +148,7 @@ const CreateUserModal = ({ onClose, onSubmit, isLoading }) => {
                     <input
                       type="checkbox"
                       checked={formData.departments.includes(value)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setFormData({
-                            ...formData,
-                            departments: [...formData.departments, value]
-                          });
-                        } else {
-                          setFormData({
-                            ...formData,
-                            departments: formData.departments.filter(d => d !== value)
-                          });
-                        }
-                      }}
+                      onChange={() => handleDepartmentToggle(value)}
                       className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
                     />
                     <span className="text-sm text-gray-700">
@@ -188,58 +175,6 @@ const CreateUserModal = ({ onClose, onSubmit, isLoading }) => {
             </div>
           )}
 
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-              Password *
-            </label>
-            <div className="relative">
-              <input
-                id="password"
-                type={showPassword ? 'text' : 'password'}
-                required
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                placeholder="At least 8 characters"
-                minLength={8}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-              </button>
-            </div>
-            <p className="mt-1 text-xs text-gray-500">
-              Password must be at least 8 characters with uppercase, lowercase, and number
-            </p>
-          </div>
-
-          <div>
-            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
-              Confirm Password *
-            </label>
-            <div className="relative">
-              <input
-                id="confirmPassword"
-                type={showConfirmPassword ? 'text' : 'password'}
-                required
-                value={formData.confirmPassword}
-                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                placeholder="Confirm password"
-              />
-              <button
-                type="button"
-                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-              </button>
-            </div>
-          </div>
-
           <div className="flex gap-3 pt-4">
             <button
               type="button"
@@ -254,7 +189,7 @@ const CreateUserModal = ({ onClose, onSubmit, isLoading }) => {
               disabled={isLoading}
               className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isLoading ? 'Creating...' : 'Create User'}
+              {isLoading ? 'Updating...' : 'Update User'}
             </button>
           </div>
         </form>
@@ -263,5 +198,5 @@ const CreateUserModal = ({ onClose, onSubmit, isLoading }) => {
   );
 };
 
-export default CreateUserModal;
+export default EditUserModal;
 

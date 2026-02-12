@@ -5,16 +5,22 @@ export const DEPARTMENTS = {
 };
 
 export const SALESFORCE_CLOUDS = [
+  // CRM Clouds
   'Sales Cloud',
   'Service Cloud',
   'Marketing Cloud',
   'Commerce Cloud',
-  'Platform Cloud',
-  'Analytics Cloud',
-  'Health Cloud',
+  'Experience Cloud',
+  'Data Cloud',
+  // Specialized Industry Clouds
   'Financial Services Cloud',
-  'Community Cloud',
-  'IoT Cloud',
+  'Health Cloud',
+  'Education Cloud',
+  'Manufacturing Cloud',
+  // Platform Tools
+  'MuleSoft',
+  'Tableau',
+  'Slack',
 ];
 
 export const WEB_TECHNOLOGIES = [

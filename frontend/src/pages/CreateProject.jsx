@@ -56,9 +56,13 @@ const CreateProject = () => {
   // Auto-populate department for managers
   useEffect(() => {
     if (user?.role === 'manager' && user?.department) {
+      // Handle both array and single department value
+      const userDept = Array.isArray(user.department) && user.department.length > 0
+        ? user.department[0] // Use first department if multiple
+        : user.department;
       setFormData((prev) => ({
         ...prev,
-        department: user.department,
+        department: userDept,
       }));
     }
   }, [user]);
@@ -319,41 +323,77 @@ const CreateProject = () => {
                     {/* Technology/Cloud Selection */}
                     {formData.department && (
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          {formData.department === DEPARTMENTS.SALESFORCE
-                            ? 'Salesforce Clouds *'
-                            : 'Technologies *'}
-                        </label>
-                        <div className="space-y-2 max-h-48 overflow-y-auto border border-gray-300 rounded-lg p-3">
-                          {getAvailableOptions().map((option) => {
-                            const isSelected =
-                              formData.department === DEPARTMENTS.SALESFORCE
-                                ? formData.clouds.includes(option)
-                                : formData.technologies.includes(option);
-                            return (
-                              <label
-                                key={option}
-                                className="flex items-center space-x-2 p-2 rounded cursor-pointer hover:bg-gray-50"
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={isSelected}
-                                  onChange={() => handleOptionToggle(option)}
-                                  className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                                />
-                                <span className="text-sm text-gray-700">
-                                  {option}
-                                </span>
-                              </label>
-                            );
-                          })}
-                        </div>
-                        {formData.department === DEPARTMENTS.SALESFORCE &&
-                          formData.clouds.length === 0 && (
-                            <p className="text-xs text-red-600 mt-1">
-                              Please select at least one Salesforce Cloud
-                            </p>
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="block text-sm font-medium text-gray-700">
+                            {formData.department === DEPARTMENTS.SALESFORCE
+                              ? 'Salesforce Clouds *'
+                              : 'Technologies *'}
+                          </label>
+                          {formData.department === DEPARTMENTS.SALESFORCE && (
+                            <span className="text-xs text-gray-500">
+                              {formData.clouds.length} of {SALESFORCE_CLOUDS.length} selected
+                            </span>
                           )}
+                          {formData.department !== DEPARTMENTS.SALESFORCE && (
+                            <span className="text-xs text-gray-500">
+                              {formData.technologies.length} selected
+                            </span>
+                          )}
+                        </div>
+                        <div className={`space-y-2 border border-gray-300 rounded-lg p-3 ${
+                          formData.department === DEPARTMENTS.SALESFORCE 
+                            ? 'max-h-64' 
+                            : 'max-h-48'
+                        } overflow-y-auto bg-gray-50`}>
+                          {getAvailableOptions().length === 0 ? (
+                            <p className="text-sm text-gray-500 text-center py-4">
+                              No options available
+                            </p>
+                          ) : (
+                            getAvailableOptions().map((option) => {
+                              const isSelected =
+                                formData.department === DEPARTMENTS.SALESFORCE
+                                  ? formData.clouds.includes(option)
+                                  : formData.technologies.includes(option);
+                              return (
+                                <label
+                                  key={option}
+                                  className={`flex items-center space-x-2 p-2 rounded cursor-pointer transition-colors ${
+                                    isSelected 
+                                      ? 'bg-primary-50 border border-primary-200' 
+                                      : 'hover:bg-white'
+                                  }`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => handleOptionToggle(option)}
+                                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                                  />
+                                  <span className={`text-sm ${
+                                    isSelected ? 'text-primary-900 font-medium' : 'text-gray-700'
+                                  }`}>
+                                    {option}
+                                  </span>
+                                </label>
+                              );
+                            })
+                          )}
+                        </div>
+                        {formData.department === DEPARTMENTS.SALESFORCE && (
+                          <>
+                            {formData.clouds.length === 0 && (
+                              <p className="text-xs text-red-600 mt-1">
+                                Please select at least one Salesforce Cloud
+                              </p>
+                            )}
+                            {formData.clouds.length > 0 && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                Selected: {formData.clouds.join(', ')}
+                              </p>
+                            )}
+                          </>
+                        )}
                         {formData.department !== DEPARTMENTS.SALESFORCE &&
                           formData.technologies.length === 0 && (
                             <p className="text-xs text-red-600 mt-1">

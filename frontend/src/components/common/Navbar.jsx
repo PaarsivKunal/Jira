@@ -1,17 +1,14 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
-  Bell,
-  Settings,
   Search,
-  Plus,
-  HelpCircle,
   LogOut,
   User,
   ChevronDown,
+  Settings,
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
-import AppsDropdown from './AppsDropdown';
+import NotificationDropdown from './NotificationDropdown';
 
 const Navbar = () => {
   const { user, logout } = useAuth();
@@ -42,11 +39,12 @@ const Navbar = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-8">
             <div className="flex items-center space-x-2">
-              <AppsDropdown />
               <Link to="/dashboard" className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-primary-600 rounded flex items-center justify-center">
-                  <span className="text-white font-bold">P</span>
-                </div>
+                <img 
+                  src="/Logo.png" 
+                  alt="Paarsiv Logo" 
+                  className="w-8 h-8 object-contain"
+                />
                 <span className="text-lg font-semibold text-gray-900">Paarsiv</span>
               </Link>
             </div>
@@ -63,28 +61,21 @@ const Navbar = () => {
               >
                 Projects
               </Link>
-              <button className="px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
-                Filters
-              </button>
-              <button className="px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+              <Link
+                to="/dashboard"
+                className="px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              >
                 Dashboards
-              </button>
-              <button className="px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+              </Link>
+              <Link
+                to="/teams"
+                className="px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              >
                 Teams
-              </button>
-              <button className="px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
-                Plans
-              </button>
-              <button className="px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
-                Apps
-              </button>
+              </Link>
             </div>
           </div>
           <div className="flex items-center space-x-2">
-            <button className="px-3 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 flex items-center space-x-2 text-sm font-medium transition-colors">
-              <Plus size={16} />
-              <span>Create</span>
-            </button>
             <div className="hidden md:block relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
@@ -94,16 +85,7 @@ const Navbar = () => {
               />
             </div>
             <div className="flex items-center space-x-1">
-              <button className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors relative">
-                <Bell size={20} />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
-              </button>
-              <button className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
-                <Settings size={20} />
-              </button>
-              <button className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
-                <HelpCircle size={20} />
-              </button>
+              <NotificationDropdown />
               {user && (
                 <div className="relative ml-2" ref={userMenuRef}>
                   <button
