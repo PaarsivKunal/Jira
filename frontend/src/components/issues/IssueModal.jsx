@@ -111,12 +111,14 @@ const IssueModal = ({ isOpen, onClose, issue, onSubmit, projects, initialStatus,
         }
 
         // If user has no department, don't filter them out (for backward compatibility)
-        if (!u.department) {
+        if (!u.department || (Array.isArray(u.department) && u.department.length === 0)) {
           return true;
         }
 
         // User must match project department
-        return u.department === selectedProject.department;
+        // Handle both array (new) and string (old) department formats
+        const userDepartments = Array.isArray(u.department) ? u.department : [u.department];
+        return userDepartments.includes(selectedProject.department);
       });
     } else {
       // If no project selected, show all users except managers/admins
@@ -437,11 +439,13 @@ const IssueModal = ({ isOpen, onClose, issue, onSubmit, projects, initialStatus,
                               <span className="text-xs text-gray-500">({u.email})</span>
                             )}
                           </div>
-                          {u.department && (
+                          {u.department && (Array.isArray(u.department) ? u.department.length > 0 : u.department) && (
                             <div className="mt-1 flex flex-wrap gap-1">
-                              <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-700 rounded">
-                                {u.department.replace('_', ' ')}
-                              </span>
+                              {(Array.isArray(u.department) ? u.department : [u.department]).map((dept, idx) => (
+                                <span key={idx} className="text-xs px-2 py-0.5 bg-gray-100 text-gray-700 rounded">
+                                  {dept.replace('_', ' ')}
+                                </span>
+                              ))}
                             </div>
                           )}
                         </div>
