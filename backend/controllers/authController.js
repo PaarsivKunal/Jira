@@ -27,7 +27,7 @@ export const register = async (req, res) => {
 
     // Organization name is required
     if (!organizationName || organizationName.trim().length === 0) {
-      return res.status(400).json({ message: 'Organization name is required' });
+      return sendErrorResponse(res, 400, 'Organization name is required', req.id);
     }
 
     // Generate slug from organization name
@@ -36,15 +36,15 @@ export const register = async (req, res) => {
     // Check if organization slug exists
     const orgExists = await Organization.findOne({ slug });
     if (orgExists) {
-      return res.status(400).json({ 
-        message: 'Organization name already taken. Please choose a different name.' 
-      });
+      return sendErrorResponse(res, 400, 'Organization name already taken. Please choose a different name.', req.id);
     }
 
-    // Check if user exists (globally, before organization assignment)
+    // Check if user exists with this email (globally)
+    // Note: With compound index (email + organization), same email can exist in different organizations
+    // But we check globally first to prevent duplicate accounts
     const userExists = await User.findOne({ email: normalizedEmail });
     if (userExists) {
-      return res.status(400).json({ message: 'User already exists' });
+      return sendErrorResponse(res, 400, 'User with this email already exists', req.id);
     }
 
     // Create organization first
@@ -151,7 +151,7 @@ export const login = async (req, res) => {
         token: generateToken(user._id),
       });
     } else {
-      res.status(401).json({ message: 'Invalid email or password' });
+      return sendErrorResponse(res, 401, 'Invalid email or password', req.id);
     }
   } catch (error) {
     // Log error without exposing sensitive details
@@ -211,9 +211,7 @@ export const forgotPassword = async (req, res) => {
       user.resetPasswordExpire = undefined;
       await user.save({ validateBeforeSave: false });
       
-      return res.status(500).json({ 
-        message: 'Email could not be sent. Please try again later.' 
-      });
+      return sendErrorResponse(res, 500, 'Email could not be sent. Please try again later.', req.id);
     }
   } catch (error) {
     sendErrorResponse(res, 500, 'Failed to process password reset request', req.id, process.env.NODE_ENV === 'development' ? { error: error.message } : null);
@@ -237,7 +235,7 @@ export const resetPassword = async (req, res) => {
     });
 
     if (!user) {
-      return res.status(400).json({ message: 'Invalid or expired reset token' });
+      return sendErrorResponse(res, 400, 'Invalid or expired reset token', req.id);
     }
 
     user.password = password;

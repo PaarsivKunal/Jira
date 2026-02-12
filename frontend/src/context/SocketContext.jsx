@@ -20,12 +20,19 @@ export const SocketProvider = ({ children }) => {
   const [isConnected, setIsConnected] = useState(false);
   const queryClient = useQueryClient();
   const socketRef = useRef(null);
+  const queryClientRef = useRef(queryClient);
+  
+  // Keep queryClient ref updated (it's stable but ref ensures we always have latest)
+  useEffect(() => {
+    queryClientRef.current = queryClient;
+  }, [queryClient]);
 
   useEffect(() => {
     if (!user) {
       // Disconnect if user logs out
       if (socketRef.current) {
         socketRef.current.disconnect();
+        socketRef.current.removeAllListeners();
         socketRef.current = null;
         setSocket(null);
         setIsConnected(false);
@@ -63,11 +70,25 @@ export const SocketProvider = ({ children }) => {
       console.error('Socket connection error:', error);
     });
 
-    // Real-time event handlers
+    // Real-time event handlers - use debouncing to prevent excessive invalidations
+    let invalidationTimeout = null;
+    const debouncedInvalidate = (queryKeys, delay = 100) => {
+      if (invalidationTimeout) {
+        clearTimeout(invalidationTimeout);
+      }
+      invalidationTimeout = setTimeout(() => {
+        queryKeys.forEach(key => {
+          queryClientRef.current.invalidateQueries({ queryKey: key });
+        });
+      }, delay);
+    };
+
     newSocket.on('issue:created', (issue) => {
-      // Invalidate issues queries to refetch
-      queryClient.invalidateQueries(['issues']);
-      queryClient.invalidateQueries(['issues', issue.projectId?._id || issue.projectId]);
+      const projectId = issue.projectId?._id || issue.projectId;
+      debouncedInvalidate([
+        ['issues'],
+        ['issues', projectId]
+      ]);
       
       // Show notification
       toast.success(`New issue created: ${issue.title}`, {
@@ -76,16 +97,21 @@ export const SocketProvider = ({ children }) => {
     });
 
     newSocket.on('issue:updated', (issue) => {
-      // Invalidate specific issue and issues list
-      queryClient.invalidateQueries(['issue', issue._id]);
-      queryClient.invalidateQueries(['issues']);
-      queryClient.invalidateQueries(['issues', issue.projectId?._id || issue.projectId]);
+      const projectId = issue.projectId?._id || issue.projectId;
+      debouncedInvalidate([
+        ['issue', issue._id],
+        ['issues'],
+        ['issues', projectId]
+      ]);
     });
 
     newSocket.on('issue:status_updated', (issue) => {
-      queryClient.invalidateQueries(['issue', issue._id]);
-      queryClient.invalidateQueries(['issues']);
-      queryClient.invalidateQueries(['issues', issue.projectId?._id || issue.projectId]);
+      const projectId = issue.projectId?._id || issue.projectId;
+      debouncedInvalidate([
+        ['issue', issue._id],
+        ['issues'],
+        ['issues', projectId]
+      ]);
       
       toast.success(`Issue status updated: ${issue.title}`, {
         duration: 2000,
@@ -93,9 +119,11 @@ export const SocketProvider = ({ children }) => {
     });
 
     newSocket.on('issue:deleted', ({ issueId, projectId }) => {
-      queryClient.invalidateQueries(['issue', issueId]);
-      queryClient.invalidateQueries(['issues']);
-      queryClient.invalidateQueries(['issues', projectId]);
+      debouncedInvalidate([
+        ['issue', issueId],
+        ['issues'],
+        ['issues', projectId]
+      ]);
       
       toast.success('Issue deleted', {
         duration: 2000,
@@ -103,8 +131,10 @@ export const SocketProvider = ({ children }) => {
     });
 
     newSocket.on('issue:approved', (issue) => {
-      queryClient.invalidateQueries(['issue', issue._id]);
-      queryClient.invalidateQueries(['issues']);
+      debouncedInvalidate([
+        ['issue', issue._id],
+        ['issues']
+      ]);
       
       toast.success(`Issue approved: ${issue.title}`, {
         duration: 3000,
@@ -112,8 +142,10 @@ export const SocketProvider = ({ children }) => {
     });
 
     newSocket.on('issue:rejected', (issue) => {
-      queryClient.invalidateQueries(['issue', issue._id]);
-      queryClient.invalidateQueries(['issues']);
+      debouncedInvalidate([
+        ['issue', issue._id],
+        ['issues']
+      ]);
       
       toast.error(`Issue rejected: ${issue.title}`, {
         duration: 3000,
@@ -121,44 +153,59 @@ export const SocketProvider = ({ children }) => {
     });
 
     newSocket.on('comment:created', (comment) => {
-      queryClient.invalidateQueries(['comments', comment.issueId]);
-      queryClient.invalidateQueries(['issue', comment.issueId]);
+      debouncedInvalidate([
+        ['comments', comment.issueId],
+        ['issue', comment.issueId]
+      ]);
     });
 
     newSocket.on('comment:updated', (comment) => {
-      queryClient.invalidateQueries(['comments', comment.issueId]);
+      debouncedInvalidate([
+        ['comments', comment.issueId]
+      ]);
     });
 
     newSocket.on('comment:deleted', ({ commentId, issueId }) => {
-      queryClient.invalidateQueries(['comments', issueId]);
+      debouncedInvalidate([
+        ['comments', issueId]
+      ]);
     });
 
     newSocket.on('worklog:created', (workLog) => {
-      queryClient.invalidateQueries(['workLogs', workLog.issueId]);
-      queryClient.invalidateQueries(['issue', workLog.issueId]);
+      debouncedInvalidate([
+        ['workLogs', workLog.issueId],
+        ['issue', workLog.issueId]
+      ]);
     });
 
     newSocket.on('worklog:updated', (workLog) => {
-      queryClient.invalidateQueries(['workLogs', workLog.issueId]);
-      queryClient.invalidateQueries(['issue', workLog.issueId]);
+      debouncedInvalidate([
+        ['workLogs', workLog.issueId],
+        ['issue', workLog.issueId]
+      ]);
     });
 
     newSocket.on('worklog:deleted', ({ workLogId, issueId }) => {
-      queryClient.invalidateQueries(['workLogs', issueId]);
-      queryClient.invalidateQueries(['issue', issueId]);
+      debouncedInvalidate([
+        ['workLogs', issueId],
+        ['issue', issueId]
+      ]);
     });
 
     // Cleanup on unmount
     return () => {
+      if (invalidationTimeout) {
+        clearTimeout(invalidationTimeout);
+      }
       if (socketRef.current) {
-        socketRef.current.disconnect();
         socketRef.current.removeAllListeners();
+        socketRef.current.disconnect();
       }
       socketRef.current = null;
       setSocket(null);
       setIsConnected(false);
     };
-  }, [user, queryClient]);
+  }, [user]); // Removed queryClient from dependencies - it's stable and doesn't need to be in deps
 
   // Function to join a project room
   const joinProject = (projectId) => {

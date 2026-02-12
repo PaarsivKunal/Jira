@@ -10,7 +10,8 @@ const userSchema = mongoose.Schema(
     email: {
       type: String,
       required: [true, 'Please add an email'],
-      unique: true,
+      // Note: Email uniqueness is enforced per organization via compound index below
+      // This allows same email across different organizations
       lowercase: true,
       trim: true,
     },

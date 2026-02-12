@@ -320,3 +320,23 @@ export const validateResetPassword = [
   handleValidationErrors,
 ];
 
+// Approval/Rejection validation rules
+export const validateApproveIssue = [
+  body('comment')
+    .optional()
+    .trim()
+    .isLength({ max: 1000 })
+    .withMessage('Comment must be less than 1000 characters'),
+  handleValidationErrors,
+];
+
+export const validateRejectIssue = [
+  body('comment')
+    .trim()
+    .notEmpty()
+    .withMessage('Rejection comment is required')
+    .isLength({ min: 1, max: 1000 })
+    .withMessage('Comment must be between 1 and 1000 characters'),
+  handleValidationErrors,
+];
+

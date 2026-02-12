@@ -22,6 +22,8 @@ import {
   validateCreateWorkLog,
   validateMongoId,
   validatePagination,
+  validateApproveIssue,
+  validateRejectIssue,
 } from '../middleware/validation.js';
 
 const router = express.Router();
@@ -37,11 +39,11 @@ router
 
 router
   .route('/:id/approve')
-  .post(protect, validateMongoId('id'), approveIssue);
+  .post(protect, validateMongoId('id'), validateApproveIssue, approveIssue);
 
 router
   .route('/:id/reject')
-  .post(protect, validateMongoId('id'), rejectIssue);
+  .post(protect, validateMongoId('id'), validateRejectIssue, rejectIssue);
 
 router
   .route('/:id/children')

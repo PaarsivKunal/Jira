@@ -18,8 +18,10 @@ const Login = () => {
       if (location.state?.message) {
         toast.success(location.state.message);
       }
+      // Clear location state to prevent re-triggering on navigation
+      window.history.replaceState({}, document.title, window.location.pathname);
     }
-  }, [location]);
+  }, [location.state?.email, location.state?.message]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

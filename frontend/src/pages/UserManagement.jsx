@@ -60,9 +60,13 @@ const UserManagement = () => {
   const createOrgMutation = useMutation({
     mutationFn: createOrganization,
     onSuccess: () => {
+      // Invalidate all relevant queries instead of reloading
       queryClient.invalidateQueries(['users']);
-      // Refresh user data
-      window.location.reload();
+      queryClient.invalidateQueries(['project']);
+      queryClient.invalidateQueries(['projects']);
+      // Refetch user data to get updated organization info
+      queryClient.invalidateQueries(['auth', 'me']);
+      setShowCreateOrgModal(false);
       toast.success('Organization created successfully');
     },
     onError: (error) => {

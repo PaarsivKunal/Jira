@@ -77,21 +77,37 @@ const corsOptions = {
       ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
       : (process.env.NODE_ENV === 'production' ? [] : ['http://localhost:5173']);
     
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin && process.env.NODE_ENV !== 'production') {
+    // In production, require origin header for security
+    // Only allow no-origin requests in development (for testing)
+    if (!origin) {
+      if (process.env.NODE_ENV === 'production') {
+        return callback(new Error('CORS: Origin header required in production'));
+      }
+      // Development: allow no-origin for testing tools
       return callback(null, true);
     }
     
-    if (allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+    // Validate origin against allowed list
+    if (allowedOrigins.length === 0) {
+      // No FRONTEND_URL configured - deny all in production
+      if (process.env.NODE_ENV === 'production') {
+        return callback(new Error('CORS: No allowed origins configured'));
+      }
+      // Development fallback
+      return callback(null, true);
+    }
+    
+    if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      callback(new Error(`CORS: Origin ${origin} not allowed`));
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id'],
   maxAge: 86400, // 24 hours
+  optionsSuccessStatus: 200, // Some legacy browsers (IE11) choke on 204
 };
 
 app.use(cors(corsOptions));
@@ -105,8 +121,11 @@ if (process.env.NODE_ENV === 'development') {
 
 // Global Middleware
 app.use(requestId); // Add Request ID
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Body size limits from environment or defaults
+const maxBodySize = process.env.MAX_BODY_SIZE || '10mb';
+app.use(express.json({ limit: maxBodySize }));
+app.use(express.urlencoded({ extended: true, limit: maxBodySize }));
 app.use(mongoSanitize());
 
 // Rate limiting

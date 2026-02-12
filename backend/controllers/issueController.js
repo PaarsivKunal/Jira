@@ -80,7 +80,7 @@ export const getIssues = async (req, res) => {
     // Get user's organization
     const user = await User.findById(req.user._id);
     if (!user.organization) {
-      return res.status(400).json({ message: 'User must belong to an organization' });
+      return sendErrorResponse(res, 400, 'User must belong to an organization', req.id);
     }
 
     // Get all projects in user's organization
@@ -97,7 +97,7 @@ export const getIssues = async (req, res) => {
     if (projectId) {
       // Ensure requested project belongs to user's organization
       if (!orgProjectIds.some(id => id.toString() === projectId)) {
-        return res.status(403).json({ message: 'Project not found in your organization' });
+        return sendErrorResponse(res, 403, 'Project not found in your organization', req.id);
       }
       query.projectId = projectId;
     }
@@ -139,7 +139,7 @@ export const getIssues = async (req, res) => {
           
           // If no assigned issues, deny access
           if (assignedIssuesCount === 0) {
-            return res.status(403).json({ message: 'Access denied to this project' });
+            return sendErrorResponse(res, 403, 'Access denied to this project', req.id);
           }
           // If they have assigned issues, allow access but filter to only show their assigned issues
           query.$or = [
@@ -259,7 +259,7 @@ export const getIssue = async (req, res) => {
       .lean();
 
     if (!issue) {
-      return res.status(404).json({ message: 'Issue not found' });
+      return sendErrorResponse(res, 404, 'Issue not found', req.id);
     }
 
     // Get child issues
@@ -288,7 +288,7 @@ export const createIssue = async (req, res) => {
     // Get user's organization
     const user = await User.findById(req.user._id);
     if (!user.organization) {
-      return res.status(400).json({ message: 'User must belong to an organization' });
+      return sendErrorResponse(res, 400, 'User must belong to an organization', req.id);
     }
 
     const { projectId, title, description, type, priority, assignee, assignees, labels, dueDate } = req.body;
@@ -299,7 +299,7 @@ export const createIssue = async (req, res) => {
     });
 
     if (!projectData) {
-      return res.status(404).json({ message: 'Project not found in your organization' });
+      return sendErrorResponse(res, 404, 'Project not found in your organization', req.id);
     }
 
     const key = await generateIssueKey(projectData.key);
@@ -379,15 +379,13 @@ export const updateIssue = async (req, res) => {
     const issue = await Issue.findById(req.params.id);
 
     if (!issue) {
-      return res.status(404).json({ message: 'Issue not found' });
+      return sendErrorResponse(res, 404, 'Issue not found', req.id);
     }
 
     // Check authorization
     const hasPermission = await canModifyIssue(issue, req.user._id, req.user.role);
     if (!hasPermission) {
-      return res.status(403).json({
-        message: 'You do not have permission to modify this issue'
-      });
+      return sendErrorResponse(res, 403, 'You do not have permission to modify this issue', req.id);
     }
 
     const oldStatus = issue.status;
@@ -549,13 +547,13 @@ export const deleteIssue = async (req, res) => {
     const issue = await Issue.findById(req.params.id);
 
     if (!issue) {
-      return res.status(404).json({ message: 'Issue not found' });
+      return sendErrorResponse(res, 404, 'Issue not found', req.id);
     }
 
     // Check authorization - only admin, project lead, or reporter can delete
     const project = await Project.findById(issue.projectId);
     if (!project) {
-      return res.status(404).json({ message: 'Project not found' });
+      return sendErrorResponse(res, 404, 'Project not found', req.id);
     }
 
     const isAdmin = req.user.role === ROLES.ADMIN;
@@ -563,9 +561,7 @@ export const deleteIssue = async (req, res) => {
     const isReporter = issue.reporter.toString() === req.user._id.toString();
 
     if (!isAdmin && !isLead && !isReporter) {
-      return res.status(403).json({
-        message: 'You do not have permission to delete this issue'
-      });
+      return sendErrorResponse(res, 403, 'You do not have permission to delete this issue', req.id);
     }
 
     const projectId = issue.projectId.toString();
@@ -592,15 +588,13 @@ export const updateIssueStatus = async (req, res) => {
     const issue = await Issue.findById(req.params.id);
 
     if (!issue) {
-      return res.status(404).json({ message: 'Issue not found' });
+      return sendErrorResponse(res, 404, 'Issue not found', req.id);
     }
 
     // Check authorization
     const hasPermission = await canModifyIssue(issue, req.user._id, req.user.role);
     if (!hasPermission) {
-      return res.status(403).json({
-        message: 'You do not have permission to update this issue'
-      });
+      return sendErrorResponse(res, 403, 'You do not have permission to update this issue', req.id);
     }
 
     const oldStatus = issue.status;
@@ -647,21 +641,21 @@ export const approveIssue = async (req, res) => {
   try {
     // Only managers and admins can approve
     if (req.user.role !== ROLES.MANAGER && req.user.role !== ROLES.ADMIN) {
-      return res.status(403).json({ message: 'Only managers and admins can approve work' });
+      return sendErrorResponse(res, 403, 'Only managers and admins can approve work', req.id);
     }
 
     const issue = await Issue.findById(req.params.id);
 
     if (!issue) {
-      return res.status(404).json({ message: 'Issue not found' });
+      return sendErrorResponse(res, 404, 'Issue not found', req.id);
     }
 
     if (issue.status !== 'done') {
-      return res.status(400).json({ message: 'Issue must be marked as done before approval' });
+      return sendErrorResponse(res, 400, 'Issue must be marked as done before approval', req.id);
     }
 
     if (issue.approvalStatus === 'approved') {
-      return res.status(400).json({ message: 'Issue is already approved' });
+      return sendErrorResponse(res, 400, 'Issue is already approved', req.id);
     }
 
     const { comment } = req.body;
@@ -708,7 +702,7 @@ export const approveIssue = async (req, res) => {
       io.to(`project-${populatedIssue.projectId._id || populatedIssue.projectId}`).emit('issue:approved', populatedIssue);
     }
 
-    res.json(populatedIssue);
+    res.status(200).json(populatedIssue);
   } catch (error) {
     sendErrorResponse(res, 500, 'Failed to approve issue', req.id, process.env.NODE_ENV === 'development' ? { error: error.message } : null);
   }
@@ -721,23 +715,24 @@ export const rejectIssue = async (req, res) => {
   try {
     // Only managers and admins can reject
     if (req.user.role !== ROLES.MANAGER && req.user.role !== ROLES.ADMIN) {
-      return res.status(403).json({ message: 'Only managers and admins can reject work' });
+      return sendErrorResponse(res, 403, 'Only managers and admins can reject work', req.id);
     }
 
     const issue = await Issue.findById(req.params.id);
 
     if (!issue) {
-      return res.status(404).json({ message: 'Issue not found' });
+      return sendErrorResponse(res, 404, 'Issue not found', req.id);
     }
 
     if (issue.status !== 'done') {
-      return res.status(400).json({ message: 'Issue must be marked as done before rejection' });
+      return sendErrorResponse(res, 400, 'Issue must be marked as done before rejection', req.id);
     }
 
     const { comment } = req.body;
 
+    // Validation should be handled by middleware, but double-check for safety
     if (!comment || comment.trim().length === 0) {
-      return res.status(400).json({ message: 'Rejection comment is required' });
+      return sendErrorResponse(res, 400, 'Rejection comment is required', req.id);
     }
 
     issue.approvalStatus = 'rejected';
@@ -782,7 +777,7 @@ export const rejectIssue = async (req, res) => {
       io.to(`project-${populatedIssue.projectId._id || populatedIssue.projectId}`).emit('issue:rejected', populatedIssue);
     }
 
-    res.json(populatedIssue);
+    res.status(200).json(populatedIssue);
   } catch (error) {
     sendErrorResponse(res, 500, 'Failed to reject issue', req.id, process.env.NODE_ENV === 'development' ? { error: error.message } : null);
   }

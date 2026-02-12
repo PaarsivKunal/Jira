@@ -13,6 +13,7 @@ yarn-error.log*
 # Build outputs
 dist/
 build/
+frontend/dev-dist/
 *.log
 
 # IDE
@@ -43,6 +44,8 @@ backend/uploads/*
 # Testing
 coverage/
 .nyc_output/
+backend/test_output.txt
+backend/test_result.final.txt
 
 # Temporary files
 *.tmp

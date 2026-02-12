@@ -61,6 +61,15 @@ const validateEnv = () => {
     }
   }
 
+  // Validate MAX_BODY_SIZE (if provided)
+  if (process.env.MAX_BODY_SIZE) {
+    // Check if it's a valid size format (e.g., "10mb", "50mb", "1gb")
+    const sizePattern = /^\d+(kb|mb|gb)$/i;
+    if (!sizePattern.test(process.env.MAX_BODY_SIZE)) {
+      console.warn('⚠️  Warning: MAX_BODY_SIZE should be in format like: 10mb, 50mb, 1gb');
+    }
+  }
+
   // Validate JWT_EXPIRE format (basic check)
   if (process.env.JWT_EXPIRE) {
     const expirePattern = /^\d+[smhd]$/;
